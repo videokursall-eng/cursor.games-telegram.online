@@ -1,0 +1,15 @@
+[Unit]
+Description=Durak Frontend Build Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=deploy
+WorkingDirectory=/var/www/app.games-telegram.online/current/frontend
+ExecStart=/usr/bin/npm run build
+StandardOutput=append:/var/www/app.games-telegram.online/shared/logs/frontend-build.log
+StandardError=append:/var/www/app.games-telegram.online/shared/logs/frontend-build.log
+
+[Install]
+WantedBy=multi-user.target
+

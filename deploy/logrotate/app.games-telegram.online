@@ -1,0 +1,21 @@
+/var/www/app.games-telegram.online/shared/logs/*.log {
+  daily
+  rotate 14
+  compress
+  missingok
+  notifempty
+  copytruncate
+}
+
+/var/log/nginx/app.games-telegram.online.* {
+  weekly
+  rotate 8
+  compress
+  missingok
+  notifempty
+  sharedscripts
+  postrotate
+    [ -s /run/nginx.pid ] && kill -USR1 "$(cat /run/nginx.pid)"
+  endscript
+}
+

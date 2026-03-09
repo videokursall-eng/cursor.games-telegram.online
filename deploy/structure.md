@@ -1,0 +1,19 @@
+.
+/var
+  /www
+    /app.games-telegram.online
+      /current
+        /backend
+        /frontend
+      /releases
+      /shared
+        /logs
+          backend.log
+          bot.log
+          frontend-access.log
+        /config
+          backend.env
+          bot.env
+        /pg-backups
+        /nginx-cache
+
