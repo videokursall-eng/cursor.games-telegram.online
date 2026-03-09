@@ -57,6 +57,9 @@ export async function validateTelegramAndIssueJwt(initData: string): Promise<Aut
   if (!config.telegramBotToken) {
     throw new AppError("Telegram bot token not configured", 500, "TELEGRAM_CONFIG_MISSING");
   }
+  if (!config.postgresUrl) {
+    throw new AppError("Database not configured", 503, "SERVICE_UNAVAILABLE");
+  }
 
   let payload: TelegramInitDataPayload;
   try {
@@ -69,34 +72,37 @@ export async function validateTelegramAndIssueJwt(initData: string): Promise<Aut
     throw new AppError("Missing user", 400, "INVALID_INIT_DATA");
   }
 
-  const client = await pgPool.connect();
+  let client;
+  try {
+    client = await pgPool.connect();
+  } catch (err) {
+    logger.error("Database connection failed during auth", err);
+    throw new AppError("Database unavailable", 503, "SERVICE_UNAVAILABLE");
+  }
+
   try {
     const result = await client.query(
       `
-        INSERT INTO users (telegram_id, username, first_name, last_name)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (telegram_id) DO UPDATE
-        SET username = EXCLUDED.username,
-            first_name = EXCLUDED.first_name,
-            last_name = EXCLUDED.last_name
-        RETURNING id, username, first_name, last_name
+        INSERT INTO users (tg_id, username)
+        VALUES ($1, $2)
+        ON CONFLICT (tg_id) DO UPDATE
+        SET username = EXCLUDED.username
+        RETURNING id, username
       `,
-      [
-        payload.user.id,
-        payload.user.username || null,
-        payload.user.first_name || null,
-        payload.user.last_name || null,
-      ],
+      [payload.user.id, payload.user.username || null],
     );
 
     const user = result.rows[0];
+    if (!user) {
+      throw new AppError("User upsert failed", 500, "INTERNAL_ERROR");
+    }
 
     const activeMatchRes = await client.query(
       "SELECT id FROM matches WHERE status = 'in_progress' AND EXISTS (SELECT 1 FROM match_players mp WHERE mp.match_id = matches.id AND mp.user_id = $1) ORDER BY created_at DESC LIMIT 1",
       [user.id],
     );
 
-    const activeMatchId = activeMatchRes.rows[0]?.id || null;
+    const activeMatchId = activeMatchRes.rows[0]?.id ?? null;
 
     const token = jwt.sign(
       {
@@ -124,8 +130,8 @@ export async function validateTelegramAndIssueJwt(initData: string): Promise<Aut
       user: {
         id: user.id,
         username: user.username || undefined,
-        firstName: user.first_name || undefined,
-        lastName: user.last_name || undefined,
+        firstName: payload.user.first_name,
+        lastName: payload.user.last_name,
       },
       activeMatchId,
     };
