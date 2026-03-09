@@ -1,6 +1,9 @@
 import dotenv from "dotenv";
+import path from "path";
 
-dotenv.config();
+// Load .env from backend root (e.g. dist/config/index.js -> ../../.env)
+const backendRoot = path.resolve(path.join(__dirname, "..", ".."));
+dotenv.config({ path: path.join(backendRoot, ".env") });
 
 export const config = {
   env: process.env.NODE_ENV || "development",
