@@ -1,5 +1,6 @@
--- Additional room settings: name, scenario, auto start, late join flag
+-- Additional room settings: make sure all extra columns exist on any DB
 ALTER TABLE rooms
+  ADD COLUMN IF NOT EXISTS bot_count INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS name TEXT,
   ADD COLUMN IF NOT EXISTS scenario TEXT DEFAULT 'mixed',
   ADD COLUMN IF NOT EXISTS auto_start_on_full BOOLEAN NOT NULL DEFAULT FALSE,
