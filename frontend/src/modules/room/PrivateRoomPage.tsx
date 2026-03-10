@@ -73,8 +73,9 @@ export const PrivateRoomPage: React.FC = () => {
       const res = await axios.post("/api/room/start", { roomId });
       const matchId: string = res.data.matchId;
       navigate(`/match/${matchId}`);
-    } catch (e: any) {
-      setError(e?.response?.data?.error?.message ?? "Ошибка старта");
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: { message?: string } } } };
+      setError(err?.response?.data?.error?.message ?? "Ошибка старта");
     } finally {
       setStarting(false);
     }
@@ -90,78 +91,229 @@ export const PrivateRoomPage: React.FC = () => {
     }
   }
 
+  function shareInTelegram() {
+    const code = state?.inviteToken ?? "";
+    const url = `https://t.me/share/url?url=https://t.me/YourBot?startapp=room_${roomId}&text=Join my Durak game! Code: ${code}`;
+    if (window.Telegram?.WebApp?.openTelegramLink) {
+      window.Telegram.WebApp.openTelegramLink(url);
+    } else {
+      window.open(url, "_blank");
+    }
+  }
+
   if (loading || !state) {
-    return <div style={{ padding: 16 }}>Загрузка комнаты...</div>;
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 200, color: "#94a3b8" }}>
+        Загрузка комнаты...
+      </div>
+    );
   }
 
   const inviteCode = state.inviteToken ?? "—";
   const variantLabel = state.variant === "transferable" ? "Переводной" : "Классический";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 16 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600 }}>
-        {state.isPrivate ? "Приватная комната" : "Комната"} · {variantLabel}
-      </h2>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(148,163,184,0.2)",
+            background: "rgba(15,23,42,0.5)",
+            color: "#94a3b8",
+            fontSize: 13,
+            cursor: "pointer",
+          }}
+        >
+          ← Лобби
+        </button>
+        <div
+          style={{
+            padding: "6px 12px",
+            borderRadius: 10,
+            background: "rgba(34,197,94,0.15)",
+            border: "1px solid rgba(34,197,94,0.3)",
+            color: "#4ade80",
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        >
+          {variantLabel}
+        </div>
+      </div>
 
+      {/* Room title */}
+      <div>
+        <h2 style={{ fontSize: 20, fontWeight: 800 }}>
+          {state.isPrivate ? "🔒 Приватная комната" : "🌐 Открытая комната"}
+        </h2>
+        <p style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
+          {humanCount} игрок{humanCount !== 1 ? "а" : ""} · {state.botCount} бот{state.botCount !== 1 ? "а" : ""}
+          {" · "}{state.maxPlayers} мест максимум
+        </p>
+      </div>
+
+      {/* Invite code */}
       {state.isPrivate && (
         <div
           style={{
-            padding: 12,
+            padding: "14px 16px",
             borderRadius: 16,
-            background: "rgba(15,23,42,0.7)",
-            border: "1px dashed rgba(148,163,184,0.5)",
-            fontSize: 14,
+            background: "rgba(15,23,42,0.65)",
+            border: "1px dashed rgba(34,197,94,0.4)",
           }}
         >
-          <div style={{ marginBottom: 6 }}>Код приглашения</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <strong style={{ letterSpacing: 2, fontSize: 18 }}>{inviteCode}</strong>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>Код приглашения</div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 800,
+              letterSpacing: "0.15em",
+              color: "#f1f5f9",
+              marginBottom: 12,
+              fontFamily: "monospace",
+            }}
+          >
+            {inviteCode}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
               onClick={copyCode}
               style={{
-                padding: "6px 12px",
-                borderRadius: 8,
+                flex: 1,
+                padding: "10px",
+                borderRadius: 10,
                 border: "none",
-                background: copied ? "rgba(34,197,94,0.4)" : "rgba(59,130,246,0.4)",
-                color: "#e2e8f0",
-                fontWeight: 500,
+                background: copied ? "rgba(34,197,94,0.3)" : "rgba(59,130,246,0.3)",
+                color: copied ? "#86efac" : "#93c5fd",
+                fontWeight: 600,
                 fontSize: 13,
+                cursor: "pointer",
+                transition: "background 0.2s",
               }}
             >
-              {copied ? "Скопировано" : "Копировать"}
+              {copied ? "✓ Скопировано" : "📋 Копировать"}
+            </button>
+            <button
+              type="button"
+              onClick={shareInTelegram}
+              style={{
+                flex: 1,
+                padding: "10px",
+                borderRadius: 10,
+                border: "none",
+                background: "rgba(14,165,233,0.25)",
+                color: "#7dd3fc",
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: "pointer",
+              }}
+            >
+              ✈️ Поделиться
             </button>
           </div>
         </div>
       )}
 
+      {/* Players list */}
       <div>
-        <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Участники ({humanCount} + {state.botCount} ботов)</div>
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+          Игроки
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {state.members.map((m) => (
-            <li
+            <div
               key={m.seatIndex}
               style={{
-                padding: "8px 12px",
-                borderRadius: 10,
+                padding: "10px 14px",
+                borderRadius: 12,
                 background: "rgba(15,23,42,0.6)",
-                border: "1px solid rgba(148,163,184,0.2)",
-                fontSize: 14,
+                border: `1px solid ${m.userId === user?.id ? "rgba(34,197,94,0.4)" : "rgba(148,163,184,0.15)"}`,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
               }}
             >
-              Место {m.seatIndex + 1}: {m.role === "owner" ? "👑 Владелец" : "Игрок"}
-              {m.userId === user?.id && " (вы)"}
-            </li>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: m.isBot ? "rgba(99,102,241,0.3)" : "rgba(34,197,94,0.2)",
+                  border: `1px solid ${m.isBot ? "rgba(99,102,241,0.4)" : "rgba(34,197,94,0.3)"}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 18,
+                  flexShrink: 0,
+                }}
+              >
+                {m.isBot ? "🤖" : "👤"}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                  {m.role === "owner" && "👑 "}
+                  {m.isBot ? "Бот" : `Место ${m.seatIndex + 1}`}
+                  {m.userId === user?.id && " (вы)"}
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>{m.status}</div>
+              </div>
+            </div>
           ))}
-        </ul>
-        {state.botCount > 0 && (
-          <p style={{ fontSize: 13, opacity: 0.8, marginTop: 6 }}>
-            Ботов в игре: {state.botCount}
-          </p>
-        )}
+
+          {Array.from({ length: Math.max(0, state.maxPlayers - state.members.length - state.botCount) }).map((_, i) => (
+            <div
+              key={`empty-${i}`}
+              style={{
+                padding: "10px 14px",
+                borderRadius: 12,
+                background: "rgba(15,23,42,0.3)",
+                border: "1px dashed rgba(148,163,184,0.15)",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                opacity: 0.6,
+              }}
+            >
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "rgba(148,163,184,0.1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 18,
+                }}
+              >
+                ⌛
+              </div>
+              <div style={{ fontSize: 13, color: "#475569" }}>Ожидание игрока...</div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {error && <p style={{ color: "#f87171", fontSize: 13 }}>{error}</p>}
+      {error && (
+        <div
+          style={{
+            padding: "10px 14px",
+            borderRadius: 10,
+            background: "rgba(239,68,68,0.15)",
+            border: "1px solid rgba(239,68,68,0.3)",
+            color: "#fca5a5",
+            fontSize: 13,
+          }}
+        >
+          {error}
+        </div>
+      )}
 
       {isOwner && state.status === "waiting" && (
         <button
@@ -169,22 +321,25 @@ export const PrivateRoomPage: React.FC = () => {
           onClick={handleStart}
           disabled={!canStart || starting}
           style={{
-            padding: "12px 16px",
-            borderRadius: 12,
+            padding: "14px 20px",
+            borderRadius: 14,
             border: "none",
-            background: "linear-gradient(135deg, rgba(34,197,94,1), rgba(22,163,74,1))",
-            color: "#022c22",
-            fontWeight: 600,
-            fontSize: 15,
-            opacity: !canStart || starting ? 0.6 : 1,
+            background: canStart ? "linear-gradient(135deg, #22c55e, #16a34a)" : "rgba(148,163,184,0.2)",
+            color: canStart ? "#022c22" : "#64748b",
+            fontWeight: 700,
+            fontSize: 16,
+            cursor: canStart ? "pointer" : "not-allowed",
+            transition: "background 0.2s",
           }}
         >
-          {starting ? "Старт..." : "Начать игру"}
+          {starting ? "Запуск..." : canStart ? "▶ Начать игру" : `Нужно минимум 2 игрока`}
         </button>
       )}
 
       {state.status === "in_progress" && !state.activeMatchId && (
-        <p style={{ fontSize: 14, opacity: 0.9 }}>Игра уже идёт. Перейдите в матч из лобби.</p>
+        <p style={{ fontSize: 14, color: "#94a3b8", textAlign: "center" }}>
+          Игра уже идёт. Перейдите в матч из лобби.
+        </p>
       )}
     </div>
   );

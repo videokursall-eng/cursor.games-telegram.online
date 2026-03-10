@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export const JoinByCodePage: React.FC = () => {
   const [code, setCode] = useState("");
@@ -17,8 +17,9 @@ export const JoinByCodePage: React.FC = () => {
       const res = await axios.post("/api/room/join", { inviteCode: trimmed });
       const roomId: string = res.data.roomId;
       navigate(`/rooms/private/${roomId}`);
-    } catch (e: any) {
-      const msg = e?.response?.data?.error?.message ?? "Не удалось войти";
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: { message?: string } } } };
+      const msg = err?.response?.data?.error?.message ?? "Не удалось войти";
       setError(msg);
     } finally {
       setJoining(false);
@@ -26,45 +27,93 @@ export const JoinByCodePage: React.FC = () => {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 16 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600 }}>Войти по коду</h2>
-      <p style={{ fontSize: 14, opacity: 0.9, margin: 0 }}>
-        Введите код приглашения из комнаты (например, от друга).
-      </p>
-      <input
-        type="text"
-        value={code}
-        onChange={(e) => setCode(e.target.value.toUpperCase())}
-        placeholder="Код приглашения"
-        maxLength={32}
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <Link
+          to="/"
+          style={{
+            padding: "8px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(148,163,184,0.2)",
+            background: "rgba(15,23,42,0.5)",
+            color: "#94a3b8",
+            fontSize: 13,
+          }}
+        >
+          ← Назад
+        </Link>
+        <h2 style={{ fontSize: 20, fontWeight: 800 }}>Войти по коду</h2>
+      </div>
+
+      <div
         style={{
-          padding: 12,
-          borderRadius: 12,
-          border: "1px solid rgba(148,163,184,0.4)",
-          background: "rgba(15,23,42,0.8)",
-          color: "#e2e8f0",
-          fontSize: 16,
-          letterSpacing: 2,
-        }}
-      />
-      {error && <p style={{ color: "#f87171", fontSize: 13 }}>{error}</p>}
-      <button
-        type="button"
-        onClick={handleJoin}
-        disabled={joining || !code.trim()}
-        style={{
-          padding: "12px 16px",
-          borderRadius: 12,
-          border: "none",
-          background: "linear-gradient(135deg, rgba(59,130,246,1), rgba(37,99,235,1))",
-          color: "#fff",
-          fontWeight: 600,
-          fontSize: 15,
-          opacity: joining || !code.trim() ? 0.6 : 1,
+          padding: "16px",
+          borderRadius: 16,
+          background: "rgba(15,23,42,0.5)",
+          border: "1px solid rgba(148,163,184,0.15)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
         }}
       >
-        {joining ? "Вход..." : "Войти в комнату"}
-      </button>
+        <p style={{ fontSize: 13, color: "#94a3b8" }}>
+          🔑 Введите код приглашения от друга, чтобы войти в его комнату.
+        </p>
+        <input
+          type="text"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+          placeholder="Код приглашения"
+          maxLength={32}
+          style={{
+            padding: "14px 16px",
+            borderRadius: 14,
+            border: "1px solid rgba(148,163,184,0.3)",
+            background: "rgba(15,23,42,0.8)",
+            color: "#f1f5f9",
+            fontSize: 18,
+            letterSpacing: "0.15em",
+            fontFamily: "monospace",
+            fontWeight: 700,
+            textAlign: "center",
+            outline: "none",
+          }}
+        />
+        {error && (
+          <div
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "rgba(239,68,68,0.15)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              color: "#fca5a5",
+              fontSize: 13,
+            }}
+          >
+            {error}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={handleJoin}
+          disabled={joining || !code.trim()}
+          style={{
+            padding: "14px 20px",
+            borderRadius: 14,
+            border: "none",
+            background: code.trim() && !joining
+              ? "linear-gradient(135deg, #0ea5e9, #2563eb)"
+              : "rgba(148,163,184,0.15)",
+            color: code.trim() && !joining ? "#e0f2fe" : "#64748b",
+            fontWeight: 700,
+            fontSize: 16,
+            cursor: code.trim() && !joining ? "pointer" : "not-allowed",
+          }}
+        >
+          {joining ? "Вход..." : "Войти в комнату"}
+        </button>
+      </div>
     </div>
   );
 };

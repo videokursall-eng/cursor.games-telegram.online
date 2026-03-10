@@ -11,6 +11,8 @@ import { ProfilePage } from "../modules/profile/ProfilePage";
 import { StatsPage } from "../modules/stats/StatsPage";
 import { ShopPage } from "../modules/shop/ShopPage";
 import { SettingsPage } from "../modules/settings/SettingsPage";
+import { TournamentsPage } from "../modules/lobby/TournamentsPage";
+import { ActiveMatchesPage } from "../modules/lobby/ActiveMatchesPage";
 import { Layout } from "../shared/ui/Layout";
 import { ConnectionOverlay } from "../shared/ui/ConnectionOverlay";
 import { RealtimeProvider } from "../shared/realtimeClient";
@@ -31,6 +33,8 @@ export const App: React.FC = () => {
               <Route path="/stats" element={<StatsPage />} />
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/tournaments" element={<TournamentsPage />} />
+              <Route path="/active-matches" element={<ActiveMatchesPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </AuthGate>
