@@ -27,6 +27,19 @@ describe("initial state and first attacker", () => {
     expect(state.defenderIndex).toBeLessThan(state.players.length);
     expect(state.attackerIndex).not.toBe(state.defenderIndex);
   });
+
+  it("supports 5 and 6 players", () => {
+    const state5 = createInitialState([1, 2, 3, 4, 5], 42, "classic");
+    expect(state5.players).toHaveLength(5);
+    expect(state5.players.every((p) => p.hand.length === 6)).toBe(true);
+    expect(state5.deck.length).toBe(36 - 5 * 6);
+
+    const state6 = createInitialState([1, 2, 3, 4, 5, 6], 43, "transferable");
+    expect(state6.players).toHaveLength(6);
+    expect(state6.players.every((p) => p.hand.length === 5)).toBe(true);
+    expect(state6.deck.length).toBe(6);
+    expect(state6.trumpCard).toBeDefined();
+  });
 });
 
 describe("attack / defence rules", () => {

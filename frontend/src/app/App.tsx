@@ -6,6 +6,7 @@ import { LobbyPage } from "../modules/lobby/LobbyPage";
 import { MatchPage } from "../modules/match/MatchPage";
 import { CreateRoomPage } from "../modules/lobby/CreateRoomPage";
 import { PrivateRoomPage } from "../modules/room/PrivateRoomPage";
+import { JoinByCodePage } from "../modules/room/JoinByCodePage";
 import { ProfilePage } from "../modules/profile/ProfilePage";
 import { StatsPage } from "../modules/stats/StatsPage";
 import { ShopPage } from "../modules/shop/ShopPage";
@@ -24,6 +25,7 @@ export const App: React.FC = () => {
               <Route path="/" element={<LobbyPage />} />
               <Route path="/rooms/create" element={<CreateRoomPage />} />
               <Route path="/rooms/private/:roomId" element={<PrivateRoomPage />} />
+              <Route path="/join" element={<JoinByCodePage />} />
               <Route path="/match/:matchId" element={<MatchPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/stats" element={<StatsPage />} />

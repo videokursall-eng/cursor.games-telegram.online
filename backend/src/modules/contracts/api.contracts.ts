@@ -62,8 +62,9 @@ export const MyProfileResponse = z.object({
 
 export const CreateRoomRequest = z.object({
   variant: z.enum(["classic", "transferable"]),
-  maxPlayers: z.union([z.literal(2), z.literal(3), z.literal(4)]),
+  maxPlayers: z.number().int().min(2).max(6),
   isPrivate: z.boolean().optional().default(false),
+  botCount: z.number().int().min(0).max(5).optional().default(0),
   betAmount: z.number().nonnegative().nullable().optional(),
   currency: z.string().max(8).nullable().optional(),
 });
@@ -73,8 +74,9 @@ export const CreateRoomResponse = z.object({
 });
 
 export const JoinRoomRequest = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.string().uuid().optional(),
   inviteToken: z.string().optional(),
+  inviteCode: z.string().min(1).max(32).optional(),
 });
 
 export const JoinRoomResponse = z.object({
@@ -111,12 +113,14 @@ export const RoomStateResponse = z.object({
   status: z.enum(["waiting", "in_progress", "finished", "cancelled"]),
   variant: z.enum(["classic", "transferable"]),
   maxPlayers: z.number(),
+  botCount: z.number().optional().default(0),
   members: z.array(
     z.object({
       userId: z.number().nullable(),
       seatIndex: z.number(),
       role: z.enum(["owner", "player", "bot", "viewer"]),
       status: z.enum(["waiting", "ready", "left", "kicked"]),
+      isBot: z.boolean().optional().default(false),
     }),
   ),
   activeMatchId: z.string().uuid().nullable(),
@@ -130,23 +134,30 @@ export const MatchSnapshotResponse = z.object({
   status: z.enum(["in_progress", "finished", "aborted"]),
   stateVersion: z.number(),
   trumpSuit: z.enum(["S", "H", "D", "C"]),
+  trumpCard: z.string(),
   players: z.array(
     z.object({
-      userId: z.number(),
+      userId: z.number().nullable(),
       seatIndex: z.number(),
       isBot: z.boolean(),
       status: z.enum(["active", "finished", "disconnected"]),
       cardsInHand: z.number(),
       cardsTaken: z.number(),
       isWinner: z.boolean(),
+      hand: z.array(z.object({ suit: z.enum(["S", "H", "D", "C"]), rank: z.string() })).optional(),
     }),
   ),
   turn: z.object({
     turnNumber: z.number(),
-    attackerId: z.number(),
-    defenderId: z.number(),
-    phase: z.enum(["attack", "defence", "cleanup"]),
-    tableCards: z.unknown(),
+    attackerIndex: z.number(),
+    defenderIndex: z.number(),
+    phase: z.enum(["attack", "defence", "cleanup", "idle", "finished"]),
+    table: z.array(
+      z.object({
+        attack: z.object({ suit: z.enum(["S", "H", "D", "C"]), rank: z.string() }),
+        defence: z.object({ suit: z.enum(["S", "H", "D", "C"]), rank: z.string() }).nullable(),
+      }),
+    ),
     expiresAt: z.string().datetime().nullable(),
   }),
   deck: z.object({

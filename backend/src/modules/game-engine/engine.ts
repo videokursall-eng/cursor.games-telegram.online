@@ -96,13 +96,14 @@ export function createInitialState(
   seed: number,
   mode: GameMode = "classic",
 ): GameState {
-  if (playerIds.length < 2 || playerIds.length > 4) {
+  if (playerIds.length < 2 || playerIds.length > 6) {
     throw new Error("Invalid player count");
   }
   const deckShuffled = shuffle(createDeck36(), seed);
   const players: PlayerState[] = playerIds.map((id) => ({ id, hand: [], isOut: false }));
+  const cardsPerPlayer = players.length === 6 ? 5 : 6;
 
-  for (let r = 0; r < 6; r += 1) {
+  for (let r = 0; r < cardsPerPlayer; r += 1) {
     for (let p = 0; p < players.length; p += 1) {
       const card = deckShuffled.shift();
       if (!card) {

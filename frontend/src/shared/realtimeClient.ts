@@ -65,3 +65,7 @@ export function useRealtimeStatus(): ConnectionStatus {
   return useContext(RealtimeContext).status;
 }
 
+export function useRealtimeSocket(): Socket | null {
+  return useContext(RealtimeContext).socket;
+}
+

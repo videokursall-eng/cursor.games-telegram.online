@@ -5,6 +5,7 @@ import { config } from "../../config";
 import { logger } from "../../shared/logger";
 import type { ClientCommand } from "./websocketServer.types";
 import { basicAntiCheatCheck } from "../../modules/match/antiCheat";
+import { applyMatchCommand } from "../../modules/match/match.service";
 
 interface AuthedSocket extends Socket {
   userId?: number;
@@ -69,7 +70,7 @@ export function initRealtime(httpServer: HttpServer): void {
       ack?.({ ok: true });
     });
 
-    socket.on("command", (cmd: ClientCommand, ack?: (res: { ok: boolean; seq?: number; error?: string }) => void) => {
+    socket.on("command", async (cmd: ClientCommand, ack?: (res: { ok: boolean; seq?: number; error?: string }) => void) => {
       if (!cmd?.id || !cmd.matchId || !cmd.type) {
         ack?.({ ok: false, error: "INVALID_COMMAND" });
         return;
@@ -91,15 +92,18 @@ export function initRealtime(httpServer: HttpServer): void {
       seen.add(key);
       processedCommands.set(cmd.matchId, seen);
 
+      const result = await applyMatchCommand(cmd.matchId, socket.userId!, cmd.type, cmd.payload);
+      if (!result.ok) {
+        ack?.({ ok: false, error: result.error ?? "COMMAND_FAILED" });
+        return;
+      }
+
       const seq = nextSeq(cmd.matchId);
-      io.to(`match:${cmd.matchId}`).emit("match_event", {
+      io.to(`match:${cmd.matchId}`).emit("match_state", {
         matchId: cmd.matchId,
         seq,
-        type: cmd.type,
-        fromUserId: socket.userId,
-        payload: cmd.payload,
+        snapshot: result.snapshot,
       });
-
       ack?.({ ok: true, seq });
     });
 
