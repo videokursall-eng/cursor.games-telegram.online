@@ -2,7 +2,17 @@ import express from "express";
 import crypto from "crypto";
 import { requireAuth } from "../../infrastructure/http/middlewares/requireAuth";
 import { pgPool } from "../../infrastructure/db";
-import { CreateRoomRequest, CreateRoomResponse, JoinRoomRequest, JoinRoomResponse, RoomStateResponse, StartMatchRequest, StartMatchResponse } from "../contracts/api.contracts";
+import {
+  CreateRoomRequest,
+  CreateRoomResponse,
+  JoinRoomRequest,
+  JoinRoomResponse,
+  RoomStateResponse,
+  StartMatchRequest,
+  StartMatchResponse,
+  AddBotsRequest,
+  AddBotsResponse,
+} from "../contracts/api.contracts";
 import { z } from "zod";
 import { logger } from "../../shared/logger";
 import { createInitialState } from "../game-engine/engine";
@@ -15,16 +25,81 @@ export const roomRouter = express.Router();
 
 roomRouter.use(requireAuth);
 
-roomRouter.get("/overview", async (_req, res) => {
-  res.json({
-    rooms: [],
-    userStats: {
-      matchesPlayed: 0,
-      matchesWon: 0,
-      rating: 0,
-    },
-    activeMatchId: null,
-  });
+roomRouter.get("/overview", async (req, res) => {
+  const auth = req.auth!;
+  const client = await pgPool.connect();
+  try {
+    const statsRes = await client.query(
+      `
+      SELECT p.rating, p.games_played, p.games_won
+      FROM profiles p
+      WHERE p.user_id = $1
+      LIMIT 1
+    `,
+      [auth.userId],
+    );
+    const stats =
+      statsRes.rowCount === 0
+        ? { rating: 1000, games_played: 0, games_won: 0 }
+        : (statsRes.rows[0] as { rating: number; games_played: number; games_won: number });
+
+    const roomsRes = await client.query(
+      `
+      SELECT
+        r.id,
+        r.variant,
+        r.max_players,
+        r.is_private,
+        COALESCE(r.bot_count, 0) AS bot_count,
+        COALESCE(COUNT(DISTINCT rm.user_id), 0)::int AS human_count
+      FROM rooms r
+      LEFT JOIN room_members rm
+        ON rm.room_id = r.id
+       AND rm.user_id IS NOT NULL
+       AND rm.status IN ('waiting','ready')
+      WHERE r.status = 'waiting'
+        AND r.is_private = false
+      GROUP BY r.id, r.variant, r.max_players, r.is_private, r.bot_count
+      ORDER BY r.created_at ASC
+      LIMIT 32
+    `,
+    );
+
+    const activeMatchRes = await client.query(
+      `
+      SELECT m.id
+      FROM matches m
+      JOIN match_players mp ON mp.match_id = m.id
+      WHERE mp.user_id = $1
+        AND m.status = 'in_progress'
+      ORDER BY m.started_at DESC
+      LIMIT 1
+    `,
+      [auth.userId],
+    );
+
+    res.json({
+      rooms: roomsRes.rows.map((r) => ({
+        id: r.id,
+        variant: r.variant,
+        maxPlayers: r.max_players,
+        isPrivate: r.is_private,
+        humanCount: r.human_count,
+        botCount: r.bot_count,
+      })),
+      userStats: {
+        matchesPlayed: stats.games_played,
+        matchesWon: stats.games_won,
+        rating: stats.rating,
+      },
+      activeMatchId: activeMatchRes.rowCount ? activeMatchRes.rows[0].id : null,
+    });
+  } catch (err) {
+    logger.error("Failed to load room overview", err);
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to load lobby" } });
+  } finally {
+    client.release();
+  }
 });
 
 roomRouter.post("/create", async (req, res) => {
@@ -39,8 +114,8 @@ roomRouter.post("/create", async (req, res) => {
   try {
     const result = await client.query(
       `
-      INSERT INTO rooms (id, owner_user_id, variant, max_players, is_private, bet_amount, currency, status, bot_count)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, 'waiting', $7)
+      INSERT INTO rooms (id, owner_user_id, variant, max_players, is_private, bet_amount, currency, status, bot_count, name)
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, 'waiting', $7, $8)
       RETURNING id
     `,
       [
@@ -51,6 +126,7 @@ roomRouter.post("/create", async (req, res) => {
         data.betAmount ?? null,
         data.currency ?? null,
         data.botCount ?? 0,
+        null,
       ],
     );
 
@@ -207,7 +283,7 @@ roomRouter.get("/state/:roomId", async (req, res) => {
       `
       SELECT user_id, seat_index, role, status
       FROM room_members
-      WHERE room_id = $1 AND user_id IS NOT NULL
+      WHERE room_id = $1
       ORDER BY seat_index ASC
     `,
       [room.id],
@@ -244,7 +320,7 @@ roomRouter.get("/state/:roomId", async (req, res) => {
         seatIndex: row.seat_index,
         role: row.role,
         status: row.status,
-        isBot: false,
+        isBot: row.role === "bot" || row.user_id == null,
       })),
       activeMatchId,
       isPrivate: room.is_private,
@@ -292,11 +368,12 @@ roomRouter.post("/start", async (req, res) => {
     }
 
     const membersRes = await client.query(
-      "SELECT user_id, seat_index FROM room_members WHERE room_id = $1 AND user_id IS NOT NULL AND status IN ('waiting','ready') ORDER BY seat_index",
+      "SELECT user_id, seat_index, role FROM room_members WHERE room_id = $1 AND status IN ('waiting','ready') ORDER BY seat_index",
       [room.id],
     );
-    const humanCount = membersRes.rows.length;
-    const botCount = room.bot_count ?? 0;
+    const humanCount = membersRes.rows.filter((r: any) => r.user_id != null).length;
+    const botsFromMembers = membersRes.rows.filter((r: any) => r.user_id == null || r.role === "bot").length;
+    const botCount = (botsFromMembers || room.bot_count) ?? 0;
     const totalCount = humanCount + botCount;
     if (totalCount < 2 || totalCount > room.max_players) {
       return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Need 2 to max_players players (humans + bots)" } });
@@ -307,14 +384,12 @@ roomRouter.post("/start", async (req, res) => {
     const mode = room.variant === "transferable" ? "transferable" : "classic";
 
     const orderedSeats: { seatIndex: number; userId: number | null; isBot: boolean }[] = [];
-    for (const row of membersRes.rows as { user_id: number; seat_index: number }[]) {
-      while (orderedSeats.length < row.seat_index) {
-        orderedSeats.push({ seatIndex: orderedSeats.length, userId: null, isBot: true });
-      }
-      orderedSeats.push({ seatIndex: row.seat_index, userId: row.user_id, isBot: false });
-    }
-    while (orderedSeats.filter((s) => s.isBot).length < botCount) {
-      orderedSeats.push({ seatIndex: orderedSeats.length, userId: null, isBot: true });
+    for (const row of membersRes.rows as { user_id: number | null; seat_index: number; role: string }[]) {
+      orderedSeats.push({
+        seatIndex: row.seat_index,
+        userId: row.user_id,
+        isBot: row.user_id == null || row.role === "bot",
+      });
     }
     orderedSeats.sort((a, b) => a.seatIndex - b.seatIndex);
     const playerIds = orderedSeats.map((s) => (s.userId !== null ? s.userId : -(s.seatIndex + 1000)));
@@ -344,6 +419,61 @@ roomRouter.post("/start", async (req, res) => {
   } catch (err) {
     logger.error("Failed to start match", err);
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to start match" } });
+  } finally {
+    client.release();
+  }
+});
+
+roomRouter.post("/add-bots", async (req, res) => {
+  const auth = req.auth!;
+  const parse = AddBotsRequest.safeParse(req.body);
+  if (!parse.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid add bots payload" } });
+  }
+  const { roomId, count } = parse.data;
+  const client = await pgPool.connect();
+  try {
+    const roomRes = await client.query(
+      "SELECT id, owner_user_id, max_players, COALESCE(bot_count, 0) AS bot_count, status FROM rooms WHERE id = $1",
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) {
+      return res.status(404).json({ error: { code: "ROOM_NOT_FOUND", message: "Room not found" } });
+    }
+    const room = roomRes.rows[0] as {
+      id: string;
+      owner_user_id: number;
+      max_players: number;
+      bot_count: number;
+      status: string;
+    };
+    if (room.owner_user_id !== auth.userId) {
+      return res.status(403).json({ error: { code: "UNAUTHORIZED", message: "Only owner can modify bots" } });
+    }
+    if (room.status !== "waiting") {
+      return res.status(409).json({ error: { code: "ROOM_NOT_IN_WAITING_STATE", message: "Room already started" } });
+    }
+
+    const membersRes = await client.query(
+      "SELECT COUNT(*)::int AS count FROM room_members WHERE room_id = $1 AND user_id IS NOT NULL AND status IN ('waiting','ready')",
+      [room.id],
+    );
+    const humanCount = membersRes.rows[0].count as number;
+    const newBotCount = room.bot_count + count;
+    if (newBotCount > 5) {
+      return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Too many bots" } });
+    }
+    if (humanCount + newBotCount > room.max_players) {
+      return res.status(400).json({ error: { code: "ROOM_FULL", message: "Room is full for more bots" } });
+    }
+
+    await client.query("UPDATE rooms SET bot_count = $1, updated_at = now() WHERE id = $2", [newBotCount, room.id]);
+
+    const response: z.infer<typeof AddBotsResponse> = { roomId: room.id };
+    res.json(response);
+  } catch (err) {
+    logger.error("Failed to add bots", err);
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to add bots" } });
   } finally {
     client.release();
   }
