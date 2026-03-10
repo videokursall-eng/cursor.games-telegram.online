@@ -1,5 +1,6 @@
 import { io, Socket } from "socket.io-client";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useAuth } from "./authContext";
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected" | "reconnecting";
 
@@ -14,14 +15,22 @@ const RealtimeContext = createContext<RealtimeContextValue>({
 });
 
 export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { token } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
 
   useEffect(() => {
+    if (!token) {
+      setSocket(null);
+      setStatus("disconnected");
+      return;
+    }
+
     const s = io("/", {
       path: "/realtime",
       transports: ["websocket", "polling"],
       autoConnect: false,
+      auth: { token },
     });
 
     setSocket(s);
@@ -36,8 +45,10 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       s.removeAllListeners();
       s.close();
+      setSocket(null);
+      setStatus("disconnected");
     };
-  }, []);
+  }, [token]);
 
   const value = useMemo(
     () => ({

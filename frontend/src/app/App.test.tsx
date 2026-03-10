@@ -22,9 +22,8 @@ describe("App fallback without WebSocket", () => {
       </MemoryRouter>,
     );
 
-    expect(
-      screen.getByText(/Лобби. WebSocket не обязателен для загрузки этой страницы./),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/WebSocket не обязателен для загрузки этой страницы/)).toBeInTheDocument();
+    expect(screen.getByText(/Создать комнату/)).toBeInTheDocument();
   });
 });
 

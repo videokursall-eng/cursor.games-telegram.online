@@ -1,12 +1,12 @@
 import React from "react";
-import { useTelegramAuth } from "./useTelegramAuth";
+import { useAuth } from "../../shared/authContext";
 
 interface Props {
   children: React.ReactNode;
 }
 
 export const AuthGate: React.FC<Props> = ({ children }) => {
-  const { loading, error, refresh } = useTelegramAuth();
+  const { loading, error, refresh } = useAuth();
 
   if (loading) {
     return (

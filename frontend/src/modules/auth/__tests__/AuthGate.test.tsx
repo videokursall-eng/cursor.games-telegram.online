@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import axios from "axios";
+import { AuthProvider } from "../../../shared/authContext";
 import { AuthGate } from "../AuthGate";
 
 vi.mock("@twa-dev/sdk", () => ({
@@ -27,9 +28,11 @@ describe("AuthGate", () => {
     }) as any;
 
     render(
-      <AuthGate>
-        <div>CONTENT</div>
-      </AuthGate>,
+      <AuthProvider>
+        <AuthGate>
+          <div>CONTENT</div>
+        </AuthGate>
+      </AuthProvider>,
     );
 
     await waitFor(() => {
@@ -39,6 +42,7 @@ describe("AuthGate", () => {
     expect(mockedAxios.post).toHaveBeenCalledWith("/api/auth/telegram/validate", {
       initData: "fake-init-data",
     });
+    expect(axios.defaults.headers.common["Authorization"]).toBe("Bearer test-token");
   });
 });
 
