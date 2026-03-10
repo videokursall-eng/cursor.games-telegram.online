@@ -1,7 +1,0 @@
-CREATE TABLE IF NOT EXISTS users (
-  id BIGSERIAL PRIMARY KEY,
-  tg_id BIGINT NOT NULL,
-  username TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS users_tg_id_idx ON users(tg_id);
