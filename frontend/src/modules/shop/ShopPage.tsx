@@ -43,7 +43,8 @@ export const ShopPage: React.FC = () => {
         if (cancelled) return;
         const apiItems: ShopItem[] = res.data.items ?? [];
         const apiOwned: number[] = res.data.ownedItemIds ?? [];
-        const merged = [...apiItems, ...STATIC_ITEMS.filter((s) => !apiItems.some((a) => a.id === s.id))];
+        const apiItemIds = new Set(apiItems.map((a) => a.id));
+        const merged = [...apiItems, ...STATIC_ITEMS.filter((s) => !apiItemIds.has(s.id))];
         setItems(merged);
         setOwnedIds(new Set(apiOwned));
       } catch {

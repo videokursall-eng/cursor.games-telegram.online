@@ -10,7 +10,7 @@ interface Card {
   rank: string;
 }
 
-const SUIT_SYMBOLS: Record<Suit, string> = { S: "\u2660", H: "\u2665", D: "\u2666", C: "\u2663" };
+const SUIT_SYMBOLS: Record<Suit, string> = { S: "♠", H: "♥", D: "♦", C: "♣" };
 const SUIT_COLORS: Record<Suit, string> = { S: "#1e293b", H: "#ef4444", D: "#ef4444", C: "#1e293b" };
 const SUIT_TEXT_COLORS: Record<Suit, string> = { S: "#1e293b", H: "#ef4444", D: "#ef4444", C: "#1e293b" };
 

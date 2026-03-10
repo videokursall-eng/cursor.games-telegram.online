@@ -56,8 +56,8 @@ export const ProfilePage: React.FC = () => {
         setOverview(overviewRes.data as Overview);
         const matches: RecentMatch[] = statsRes.data.recentMatches ?? [];
         setRecentMatches(matches.slice(0, 5));
-      } catch {
-        // noop
+      } catch (err) {
+        console.error("ProfilePage: failed to load data", err);
       }
     }
     load();
