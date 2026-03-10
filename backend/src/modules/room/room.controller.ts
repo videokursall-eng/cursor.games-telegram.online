@@ -392,6 +392,19 @@ roomRouter.post("/start", async (req, res) => {
       });
     }
     orderedSeats.sort((a, b) => a.seatIndex - b.seatIndex);
+
+    // If bots are tracked only in room.bot_count (not as room_members rows),
+    // add synthetic bot entries so the game engine receives the correct player count.
+    const botsInSeats = orderedSeats.filter((s) => s.isBot).length;
+    const extraBots = room.bot_count - botsInSeats;
+    if (extraBots > 0) {
+      const maxSeatIndex = orderedSeats.reduce((max, s) => Math.max(max, s.seatIndex), -1);
+      for (let b = 0; b < extraBots; b++) {
+        orderedSeats.push({ seatIndex: maxSeatIndex + 1 + b, userId: null, isBot: true });
+      }
+      // orderedSeats is still sorted: new bot entries have indices higher than any existing seat
+    }
+
     const playerIds = orderedSeats.map((s) => (s.userId !== null ? s.userId : -(s.seatIndex + 1000)));
     const initialState = createInitialState(playerIds, seed, mode);
 

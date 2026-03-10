@@ -23,6 +23,7 @@ describe("AuthService validateTelegramAndIssueJwt", () => {
 
   beforeEach(() => {
     (config as any).telegramBotToken = botToken;
+    (config as any).postgresUrl = "mock://test";
   });
 
   function buildInitData() {

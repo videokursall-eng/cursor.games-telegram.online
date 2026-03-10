@@ -39,7 +39,7 @@ function validateTelegramInitData(raw: string, botToken: string): TelegramInitDa
 
   const authDate = Number(data.auth_date || 0);
   const now = Math.floor(Date.now() / 1000);
-  const maxAgeSeconds = 600;
+  const maxAgeSeconds = 86400; // 24 hours — Telegram initData is valid for up to 24h in production
   if (!authDate || now - authDate > maxAgeSeconds) {
     throw new AppError("Auth data is too old", 401, "INIT_DATA_EXPIRED");
   }
