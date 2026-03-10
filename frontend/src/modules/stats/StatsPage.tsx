@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 interface StatEntry {
@@ -18,6 +19,7 @@ interface LeaderboardEntry {
 }
 
 export const StatsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<StatEntry[] | null>(null);
   const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
 
@@ -49,7 +51,16 @@ export const StatsPage: React.FC = () => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600 }}>Статистика</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "rgba(15,23,42,0.7)", color: "#e2e8f0", fontSize: 13 }}
+        >
+          ← Назад
+        </button>
+        <h2 style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>Статистика</h2>
+      </div>
       <div
         style={{
           display: "grid",

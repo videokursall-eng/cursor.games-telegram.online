@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export const CreateRoomPage: React.FC = () => {
   const [variant, setVariant] = useState<"classic" | "transferable">("classic");
@@ -37,7 +37,16 @@ export const CreateRoomPage: React.FC = () => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600 }}>Создать комнату</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "rgba(15,23,42,0.7)", color: "#e2e8f0", fontSize: 13, flexShrink: 0 }}
+        >
+          ← Назад
+        </button>
+        <h2 style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>Создать комнату</h2>
+      </div>
 
       <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Вариант игры</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>

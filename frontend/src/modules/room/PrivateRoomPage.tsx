@@ -30,6 +30,7 @@ export const PrivateRoomPage: React.FC = () => {
   const [state, setState] = useState<RoomState | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -80,6 +81,19 @@ export const PrivateRoomPage: React.FC = () => {
     }
   }
 
+  async function handleLeave() {
+    if (!roomId || leaving) return;
+    setLeaving(true);
+    try {
+      await axios.post("/api/room/leave", { roomId });
+    } catch {
+      // ignore errors, navigate anyway
+    } finally {
+      setLeaving(false);
+      navigate("/");
+    }
+  }
+
   function copyCode() {
     const code = state?.inviteToken ?? "";
     if (!code) return;
@@ -90,20 +104,55 @@ export const PrivateRoomPage: React.FC = () => {
     }
   }
 
-  if (loading || !state) {
-    return <div style={{ padding: 16 }}>Загрузка комнаты...</div>;
+  if (loading && !state) {
+    return (
+      <div style={{ padding: 16 }}>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "rgba(15,23,42,0.7)", color: "#e2e8f0", fontSize: 13, marginBottom: 12 }}
+        >
+          ← В лобби
+        </button>
+        <div>Загрузка комнаты...</div>
+      </div>
+    );
   }
 
-  const inviteCode = state.inviteToken ?? "—";
+  if (!state) {
+    return (
+      <div style={{ padding: 16 }}>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "rgba(15,23,42,0.7)", color: "#e2e8f0", fontSize: 13, marginBottom: 12 }}
+        >
+          ← В лобби
+        </button>
+        <p style={{ color: "#f87171" }}>Комната не найдена.</p>
+      </div>
+    );
+  }
+
+  const inviteCode = state.inviteToken ?? null;
   const variantLabel = state.variant === "transferable" ? "Переводной" : "Классический";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 16 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600 }}>
-        {state.isPrivate ? "Приватная комната" : "Комната"} · {variantLabel}
-      </h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "rgba(15,23,42,0.7)", color: "#e2e8f0", fontSize: 13 }}
+        >
+          ← В лобби
+        </button>
+        <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>
+          {state.isPrivate ? "Приватная" : "Публичная"} · {variantLabel}
+        </h2>
+      </div>
 
-      {state.isPrivate && (
+      {state.isPrivate && inviteCode && (
         <div
           style={{
             padding: 12,
@@ -113,7 +162,7 @@ export const PrivateRoomPage: React.FC = () => {
             fontSize: 14,
           }}
         >
-          <div style={{ marginBottom: 6 }}>Код приглашения</div>
+          <div style={{ marginBottom: 6, opacity: 0.8 }}>Код приглашения</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <strong style={{ letterSpacing: 2, fontSize: 18 }}>{inviteCode}</strong>
             <button
@@ -129,16 +178,19 @@ export const PrivateRoomPage: React.FC = () => {
                 fontSize: 13,
               }}
             >
-              {copied ? "Скопировано" : "Копировать"}
+              {copied ? "Скопировано ✓" : "Копировать"}
             </button>
           </div>
         </div>
       )}
 
       <div>
-        <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Участники ({humanCount} + {state.botCount} ботов)</div>
+        <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>
+          Участники ({humanCount}/{state.maxPlayers - state.botCount})
+          {state.botCount > 0 && ` + ${state.botCount} бот${state.botCount === 1 ? "" : "ов"}`}
+        </div>
         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-          {state.members.map((m) => (
+          {state.members.filter((m) => !m.isBot).map((m) => (
             <li
               key={m.seatIndex}
               style={{
@@ -155,37 +207,76 @@ export const PrivateRoomPage: React.FC = () => {
           ))}
         </ul>
         {state.botCount > 0 && (
-          <p style={{ fontSize: 13, opacity: 0.8, marginTop: 6 }}>
-            Ботов в игре: {state.botCount}
-          </p>
+          <div style={{ marginTop: 6, padding: "8px 12px", borderRadius: 10, background: "rgba(15,23,42,0.4)", fontSize: 13, opacity: 0.9 }}>
+            🤖 {state.botCount} бот{state.botCount === 1 ? "" : "а"} готов{state.botCount === 1 ? "" : "ы"} к игре
+          </div>
         )}
       </div>
 
       {error && <p style={{ color: "#f87171", fontSize: 13 }}>{error}</p>}
 
-      {isOwner && state.status === "waiting" && (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {isOwner && state.status === "waiting" && (
+          <button
+            type="button"
+            onClick={handleStart}
+            disabled={!canStart || starting}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "none",
+              background: "linear-gradient(135deg, rgba(34,197,94,1), rgba(22,163,74,1))",
+              color: "#022c22",
+              fontWeight: 600,
+              fontSize: 15,
+              opacity: !canStart || starting ? 0.6 : 1,
+            }}
+          >
+            {starting ? "Старт..." : `Начать игру (${totalCount}/${state.maxPlayers})`}
+          </button>
+        )}
+
+        {!isOwner && state.status === "waiting" && (
+          <p style={{ fontSize: 13, opacity: 0.8, margin: 0, textAlign: "center" }}>
+            Ожидание начала игры от хозяина комнаты...
+          </p>
+        )}
+
+        {state.status === "in_progress" && state.activeMatchId && (
+          <button
+            type="button"
+            onClick={() => navigate(`/match/${state.activeMatchId}`)}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "none",
+              background: "linear-gradient(135deg, rgba(59,130,246,1), rgba(37,99,235,1))",
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: 15,
+            }}
+          >
+            Перейти к матчу →
+          </button>
+        )}
+
         <button
           type="button"
-          onClick={handleStart}
-          disabled={!canStart || starting}
+          onClick={handleLeave}
+          disabled={leaving}
           style={{
-            padding: "12px 16px",
+            padding: "10px 16px",
             borderRadius: 12,
-            border: "none",
-            background: "linear-gradient(135deg, rgba(34,197,94,1), rgba(22,163,74,1))",
-            color: "#022c22",
-            fontWeight: 600,
-            fontSize: 15,
-            opacity: !canStart || starting ? 0.6 : 1,
+            border: "1px solid rgba(239,68,68,0.5)",
+            background: "rgba(239,68,68,0.15)",
+            color: "#fca5a5",
+            fontWeight: 500,
+            fontSize: 14,
           }}
         >
-          {starting ? "Старт..." : "Начать игру"}
+          {leaving ? "Выход..." : "Покинуть комнату"}
         </button>
-      )}
-
-      {state.status === "in_progress" && !state.activeMatchId && (
-        <p style={{ fontSize: 14, opacity: 0.9 }}>Игра уже идёт. Перейдите в матч из лобби.</p>
-      )}
+      </div>
     </div>
   );
 };

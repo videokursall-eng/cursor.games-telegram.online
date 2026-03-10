@@ -1,9 +1,20 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 export const ShopPage: React.FC = () => {
+  const navigate = useNavigate();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600 }}>Магазин косметики</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "rgba(15,23,42,0.7)", color: "#e2e8f0", fontSize: 13 }}
+        >
+          ← Назад
+        </button>
+        <h2 style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>Магазин косметики</h2>
+      </div>
       <div
         style={{
           display: "grid",

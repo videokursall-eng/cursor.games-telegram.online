@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 import axios from "axios";
 import { StatsPage } from "../StatsPage";
@@ -37,7 +38,7 @@ describe("StatsPage", () => {
         },
       } as any);
 
-    render(<StatsPage />);
+    render(<MemoryRouter><StatsPage /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByText("Игр сыграно")).toBeInTheDocument();

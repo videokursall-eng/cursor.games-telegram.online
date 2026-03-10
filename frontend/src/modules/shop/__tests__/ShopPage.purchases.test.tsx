@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 import axios from "axios";
 import { ShopPage } from "../ShopPage";
@@ -36,7 +37,7 @@ describe("ShopPage purchases and owned items", () => {
       data: { purchaseId: 10, status: "paid" },
     }) as any;
 
-    render(<ShopPage />);
+    render(<MemoryRouter><ShopPage /></MemoryRouter>);
 
     // виртуально жмём на первую кнопку покупки
     const button = await screen.findByText("Зелёная рубашка");

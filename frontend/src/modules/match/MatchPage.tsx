@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../../shared/authContext";
 import { useRealtimeSocket } from "../../shared/realtimeClient";
@@ -17,6 +17,17 @@ function cardKey(c: Card): string {
   return c.suit + c.rank;
 }
 
+interface MatchPlayer {
+  userId: number | null;
+  seatIndex: number;
+  isBot: boolean;
+  status: string;
+  cardsInHand: number;
+  cardsTaken: number;
+  isWinner: boolean;
+  hand?: Card[];
+}
+
 interface MatchSnapshot {
   matchId: string;
   variant: string;
@@ -24,16 +35,7 @@ interface MatchSnapshot {
   stateVersion: number;
   trumpSuit: Suit;
   trumpCard: string;
-  players: {
-    userId: number | null;
-    seatIndex: number;
-    isBot: boolean;
-    status: string;
-    cardsInHand: number;
-    cardsTaken: number;
-    isWinner: boolean;
-    hand?: Card[];
-  }[];
+  players: MatchPlayer[];
   turn: {
     turnNumber: number;
     attackerIndex: number;
@@ -51,6 +53,7 @@ interface MatchSnapshot {
 
 export const MatchPage: React.FC = () => {
   const { matchId } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const socket = useRealtimeSocket();
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
@@ -144,31 +147,144 @@ export const MatchPage: React.FC = () => {
   }
 
   if (loading && !snapshot) {
-    return <div style={{ padding: 16 }}>Загрузка матча...</div>;
-  }
-  if (!snapshot) {
-    return <div style={{ padding: 16 }}>Матч не найден.</div>;
-  }
-  if (snapshot.status === "finished") {
-    const winner = snapshot.players.find((p) => p.isWinner);
-    const loser = snapshot.players.find((p) => !p.isWinner && !p.isBot);
     return (
-      <div style={{ padding: 16, textAlign: "center" }}>
-        <h2 style={{ fontSize: 20 }}>Игра окончена</h2>
-        <p>{winner ? (winner.isBot ? "Победил бот" : "Вы победили!") : "Дурак"}: место {snapshot.players.findIndex((p) => p.isWinner) + 1}</p>
-        {loser && <p>Проигравший: место {snapshot.players.findIndex((p) => !p.isWinner && !p.isBot) + 1}</p>}
+      <div style={{ padding: 16 }}>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "rgba(15,23,42,0.7)", color: "#e2e8f0", fontSize: 13, marginBottom: 12 }}
+        >
+          ← В лобби
+        </button>
+        <div>Загрузка матча...</div>
+      </div>
+    );
+  }
+
+  if (!snapshot) {
+    return (
+      <div style={{ padding: 16 }}>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "rgba(15,23,42,0.7)", color: "#e2e8f0", fontSize: 13, marginBottom: 12 }}
+        >
+          ← В лобби
+        </button>
+        <p style={{ color: "#f87171" }}>Матч не найден.</p>
+      </div>
+    );
+  }
+
+  if (snapshot.status === "finished") {
+    const myPlayer = snapshot.players.find((p) => p.userId === myUserId);
+    const loserPlayer = snapshot.players.find((p) => !p.isWinner && snapshot.players.some((w) => w.isWinner));
+    const isLoser = myPlayer && !myPlayer.isWinner;
+    const isWinner = myPlayer?.isWinner;
+
+    return (
+      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ textAlign: "center", padding: "20px 0" }}>
+          <div style={{ fontSize: 48, marginBottom: 8 }}>{isWinner ? "🏆" : isLoser ? "😔" : "🎴"}</div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px 0" }}>
+            {isWinner ? "Победа!" : isLoser ? "Вы остались в дураках!" : "Игра окончена"}
+          </h2>
+          <p style={{ fontSize: 14, opacity: 0.8, margin: 0 }}>
+            {snapshot.variant === "transferable" ? "Переводной дурак" : "Классический дурак"}
+          </p>
+        </div>
+
+        <div style={{ borderRadius: 14, padding: 12, background: "rgba(15,23,42,0.7)" }}>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, opacity: 0.8 }}>Итог</div>
+          {snapshot.players.map((p, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", fontSize: 13 }}>
+              <span>
+                {p.isBot ? "🤖 Бот" : p.userId === myUserId ? "👤 Вы" : `Игрок ${i + 1}`}
+              </span>
+              <span style={{ fontWeight: 600, color: p.isWinner ? "#22c55e" : "#f87171" }}>
+                {p.isWinner ? "Победитель" : "Дурак"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "none",
+              background: "linear-gradient(135deg, rgba(34,197,94,1), rgba(22,163,74,1))",
+              color: "#022c22",
+              fontWeight: 600,
+              fontSize: 15,
+            }}
+          >
+            В лобби
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/stats")}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 12,
+              border: "1px solid rgba(148,163,184,0.4)",
+              background: "rgba(15,23,42,0.7)",
+              color: "#e2e8f0",
+              fontWeight: 500,
+              fontSize: 14,
+            }}
+          >
+            Моя статистика
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16, minHeight: 200 }}>
-      <div style={{ fontSize: 14, opacity: 0.9 }}>
-        Козырная масть: <span style={{ color: SUIT_COLORS[trumpSuit], fontWeight: 600 }}>{SUIT_SYMBOLS[trumpSuit]} {snapshot.trumpCard}</span>
-        {" · "}Колода: {snapshot.deck.remainingCount}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "rgba(15,23,42,0.7)", color: "#e2e8f0", fontSize: 13 }}
+        >
+          ← Лобби
+        </button>
+        <div style={{ fontSize: 13, opacity: 0.9, textAlign: "right" }}>
+          Козырь: <span style={{ color: SUIT_COLORS[trumpSuit], fontWeight: 600 }}>{SUIT_SYMBOLS[trumpSuit]}</span>
+          {" · "}Колода: {snapshot.deck.remainingCount}
+        </div>
       </div>
 
+      {/* Opponents */}
+      <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+        {snapshot.players.filter((p) => p.userId !== myUserId).map((p, i) => (
+          <div
+            key={i}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 10,
+              background: p.seatIndex === attackerIndex ? "rgba(34,197,94,0.25)" : p.seatIndex === defenderIndex ? "rgba(239,68,68,0.25)" : "rgba(15,23,42,0.7)",
+              border: "1px solid rgba(148,163,184,0.2)",
+              fontSize: 12,
+              textAlign: "center",
+            }}
+          >
+            <div>{p.isBot ? "🤖" : "👤"} {p.seatIndex === attackerIndex ? "Атака" : p.seatIndex === defenderIndex ? "Защита" : ""}</div>
+            <div style={{ fontWeight: 600 }}>🃏×{p.cardsInHand}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Table */}
       <div style={{ minHeight: 80, display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", padding: 8, background: "rgba(15,23,42,0.5)", borderRadius: 12 }}>
+        {table.length === 0 && (
+          <div style={{ fontSize: 13, opacity: 0.6, alignSelf: "center" }}>Стол пуст</div>
+        )}
         {table.map((pair, idx) => (
           <div key={idx} style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center" }}>
             <div
@@ -181,7 +297,7 @@ export const MatchPage: React.FC = () => {
                 fontWeight: 600,
               }}
             >
-              {pair.attack.suit}{pair.attack.rank}
+              {SUIT_SYMBOLS[pair.attack.suit]}{pair.attack.rank}
             </div>
             {pair.defence ? (
               <div
@@ -194,7 +310,7 @@ export const MatchPage: React.FC = () => {
                   fontWeight: 600,
                 }}
               >
-                {pair.defence.suit}{pair.defence.rank}
+                {SUIT_SYMBOLS[pair.defence.suit]}{pair.defence.rank}
               </div>
             ) : (
               isDefender && phase === "defence" && (
@@ -220,7 +336,7 @@ export const MatchPage: React.FC = () => {
                         fontSize: 13,
                       }}
                     >
-                      {c.suit}{c.rank}
+                      {SUIT_SYMBOLS[c.suit]}{c.rank}
                     </button>
                   ))}
                 </div>
@@ -230,66 +346,74 @@ export const MatchPage: React.FC = () => {
         ))}
       </div>
 
-      {phase === "defence" && isDefender && (
-        <button
-          type="button"
-          onClick={handleTake}
-          disabled={sending}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 10,
-            border: "none",
-            background: "rgba(239,68,68,0.4)",
-            color: "#fca5a5",
-            fontWeight: 600,
-          }}
-        >
-          Взять
-        </button>
-      )}
+      {/* Action buttons */}
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+        {phase === "defence" && isDefender && (
+          <button
+            type="button"
+            onClick={handleTake}
+            disabled={sending}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 10,
+              border: "none",
+              background: "rgba(239,68,68,0.4)",
+              color: "#fca5a5",
+              fontWeight: 600,
+            }}
+          >
+            Взять
+          </button>
+        )}
 
-      {phase === "attack" && isAttacker && table.length > 0 && (
-        <button
-          type="button"
-          onClick={handlePass}
-          disabled={sending}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 10,
-            border: "none",
-            background: "rgba(148,163,184,0.3)",
-            color: "#e2e8f0",
-            fontWeight: 600,
-          }}
-        >
-          Бито
-        </button>
-      )}
+        {phase === "attack" && isAttacker && table.length > 0 && (
+          <button
+            type="button"
+            onClick={handlePass}
+            disabled={sending}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 10,
+              border: "none",
+              background: "rgba(148,163,184,0.3)",
+              color: "#e2e8f0",
+              fontWeight: 600,
+            }}
+          >
+            Бито ✓
+          </button>
+        )}
 
-      {phase === "cleanup" && isAttacker && (
-        <button
-          type="button"
-          onClick={handleCleanup}
-          disabled={sending}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 10,
-            border: "none",
-            background: "rgba(34,197,94,0.4)",
-            color: "#86efac",
-            fontWeight: 600,
-          }}
-        >
-          Забрать
-        </button>
-      )}
-
-      <div style={{ fontSize: 12, opacity: 0.8 }}>
-        {isAttacker && phase === "attack" && "Ваш ход: подкиньте карту того же достоинства, что на столе, или начните с любой."}
-        {isDefender && phase === "defence" && "Ваш ход: покройте карту или переведите (переводной)."}
+        {phase === "cleanup" && isAttacker && (
+          <button
+            type="button"
+            onClick={handleCleanup}
+            disabled={sending}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 10,
+              border: "none",
+              background: "rgba(34,197,94,0.4)",
+              color: "#86efac",
+              fontWeight: 600,
+            }}
+          >
+            Забрать
+          </button>
+        )}
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", paddingTop: 12 }}>
+      {/* Status hint */}
+      <div style={{ fontSize: 12, opacity: 0.8, textAlign: "center", minHeight: 18 }}>
+        {isAttacker && phase === "attack" && table.length === 0 && "Ваш ход: выберите карту для атаки"}
+        {isAttacker && phase === "attack" && table.length > 0 && "Подкиньте карту того же достоинства или нажмите Бито"}
+        {isDefender && phase === "defence" && "Покройте карту или нажмите Взять"}
+        {isAttacker && phase === "cleanup" && "Нажмите Забрать, чтобы завершить раунд"}
+        {!isAttacker && !isDefender && phase !== "finished" && "Ожидание хода соперника..."}
+      </div>
+
+      {/* My hand */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", paddingTop: 8, paddingBottom: 4 }}>
         {myHand.map((c) => {
           const canAttack = isAttacker && phase === "attack" && (table.length === 0 || ranksOnTable.includes(c.rank));
           const canTransfer = isDefender && phase === "defence" && snapshot.variant === "transferable" && ranksOnTable.includes(c.rank);
@@ -314,10 +438,13 @@ export const MatchPage: React.FC = () => {
                 opacity: used ? 0.6 : 1,
               }}
             >
-              {c.suit}{c.rank}
+              {SUIT_SYMBOLS[c.suit]}{c.rank}
             </button>
           );
         })}
+        {myHand.length === 0 && mySeatIndex >= 0 && (
+          <div style={{ fontSize: 13, opacity: 0.6 }}>Рука пуста</div>
+        )}
       </div>
     </div>
   );

@@ -27,7 +27,16 @@ export const JoinByCodePage: React.FC = () => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 16 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600 }}>Войти по коду</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "rgba(15,23,42,0.7)", color: "#e2e8f0", fontSize: 13, flexShrink: 0 }}
+        >
+          ← Назад
+        </button>
+        <h2 style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>Войти по коду</h2>
+      </div>
       <p style={{ fontSize: 14, opacity: 0.9, margin: 0 }}>
         Введите код приглашения из комнаты (например, от друга).
       </p>

@@ -424,6 +424,60 @@ roomRouter.post("/start", async (req, res) => {
   }
 });
 
+roomRouter.post("/leave", async (req, res) => {
+  const auth = req.auth!;
+  const parse = z.object({ roomId: z.string().uuid() }).safeParse(req.body);
+  if (!parse.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid leave room payload" } });
+  }
+  const { roomId } = parse.data;
+  const client = await pgPool.connect();
+  try {
+    const roomRes = await client.query(
+      "SELECT id, owner_user_id, status FROM rooms WHERE id = $1",
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) {
+      return res.status(404).json({ error: { code: "ROOM_NOT_FOUND", message: "Room not found" } });
+    }
+    const room = roomRes.rows[0] as { id: string; owner_user_id: number; status: string };
+
+    await client.query(
+      "UPDATE room_members SET status = 'left', left_at = now() WHERE room_id = $1 AND user_id = $2",
+      [roomId, auth.userId],
+    );
+
+    // Count remaining active members
+    const remainingRes = await client.query(
+      "SELECT COUNT(*)::int AS count FROM room_members WHERE room_id = $1 AND user_id IS NOT NULL AND status IN ('waiting','ready')",
+      [roomId],
+    );
+    const remaining = remainingRes.rows[0].count as number;
+
+    if (remaining === 0) {
+      await client.query("UPDATE rooms SET status = 'cancelled', updated_at = now() WHERE id = $1", [roomId]);
+    } else if (room.owner_user_id === auth.userId) {
+      // Transfer ownership to next member
+      const nextMemberRes = await client.query(
+        "SELECT user_id FROM room_members WHERE room_id = $1 AND user_id IS NOT NULL AND status IN ('waiting','ready') ORDER BY seat_index ASC LIMIT 1",
+        [roomId],
+      );
+      if ((nextMemberRes.rowCount ?? 0) > 0) {
+        const newOwner = nextMemberRes.rows[0].user_id as number;
+        await client.query("UPDATE rooms SET owner_user_id = $1, updated_at = now() WHERE id = $2", [newOwner, roomId]);
+        await client.query("UPDATE room_members SET role = 'owner', is_host = true WHERE room_id = $1 AND user_id = $2", [roomId, newOwner]);
+      }
+    }
+
+    res.json({ roomId });
+  } catch (err) {
+    logger.error("Failed to leave room", err);
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to leave room" } });
+  } finally {
+    client.release();
+  }
+});
+
 roomRouter.post("/add-bots", async (req, res) => {
   const auth = req.auth!;
   const parse = AddBotsRequest.safeParse(req.body);
