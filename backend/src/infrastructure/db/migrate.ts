@@ -1,13 +1,16 @@
 /**
  * Run SQL migrations from infrastructure/db/migrations in order.
- * Usage: node dist/infrastructure/db/migrate.js
- * Ensure POSTGRES_URL is set and run after npm run build (migrations are copied to dist).
+ * Uses schema_migrations to track applied migrations; only runs new ones.
+ * Usage: node dist/infrastructure/db/migrate.js [--bootstrap]
+ *   --bootstrap  Mark all current .sql files as applied without running them (once per already-initialized DB).
+ * Ensure POSTGRES_URL is set. Run after npm run build (migrations are copied to dist).
  */
 import path from "path";
 import fs from "fs";
 import { Pool } from "pg";
 import dotenv from "dotenv";
 
+const bootstrap = process.argv.includes("--bootstrap");
 const backendRoot = path.resolve(path.join(__dirname, "..", "..", ".."));
 dotenv.config({ path: path.join(backendRoot, ".env") });
 
@@ -30,29 +33,70 @@ async function run() {
   const client = await pool.connect();
   try {
     await client.query(`
-      CREATE TABLE IF NOT EXISTS _migrations (
-        name TEXT PRIMARY KEY,
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        id SERIAL PRIMARY KEY,
+        filename TEXT NOT NULL UNIQUE,
         applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `);
 
-    const applied = new Set(
-      (await client.query("SELECT name FROM _migrations")).rows.map((r: { name: string }) => r.name),
-    );
+    let applied = new Set<string>();
+    const schemaRows = await client.query("SELECT filename FROM schema_migrations");
+    applied = new Set(schemaRows.rows.map((r: { filename: string }) => r.filename));
+
+    const hasOldTable = await client.query(`
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = '_migrations'
+      LIMIT 1
+    `);
+    if (hasOldTable.rowCount !== 0 && applied.size === 0) {
+      const oldRows = await client.query("SELECT name FROM _migrations");
+      for (const r of oldRows.rows as { name: string }[]) {
+        await client.query(
+          "INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING",
+          [r.name],
+        );
+      }
+      applied = new Set(
+        (await client.query("SELECT filename FROM schema_migrations")).rows.map((row: { filename: string }) => row.filename),
+      );
+      if (applied.size > 0) {
+        console.log("Migrated", applied.size, "record(s) from _migrations to schema_migrations.");
+      }
+    }
 
     const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
-    for (const name of files) {
-      if (applied.has(name)) {
-        console.log("Skip (already applied):", name);
+    let appliedCount = 0;
+
+    if (bootstrap) {
+      for (const filename of files) {
+        if (applied.has(filename)) continue;
+        await client.query("INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING", [filename]);
+        appliedCount += 1;
+      }
+      console.log("Bootstrap done. Marked", appliedCount, "migration(s) as applied.");
+      return;
+    }
+
+    for (const filename of files) {
+      if (applied.has(filename)) {
+        console.log("Skip (already applied):", filename);
         continue;
       }
-      const filePath = path.join(migrationsDir, name);
+      const filePath = path.join(migrationsDir, filename);
       const sql = fs.readFileSync(filePath, "utf8");
-      console.log("Applying:", name);
+      console.log("Applying:", filename);
       await client.query(sql);
-      await client.query("INSERT INTO _migrations (name) VALUES ($1)", [name]);
+      await client.query("INSERT INTO schema_migrations (filename) VALUES ($1)", [filename]);
+      appliedCount += 1;
     }
-    console.log("Migrations done.");
+    if (appliedCount === 0 && files.length > 0) {
+      console.log("Migrations done. Nothing new to apply.");
+    } else if (appliedCount > 0) {
+      console.log("Migrations done. Applied", appliedCount, "new migration(s).");
+    } else {
+      console.log("Migrations done.");
+    }
   } finally {
     client.release();
     await pool.end();
