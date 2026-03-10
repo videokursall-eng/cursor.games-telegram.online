@@ -15,7 +15,7 @@ import { initRealtime } from "./infrastructure/realtime/websocketServer";
 
 export async function createApp() {
   await initDb();
-  initRedis();
+  await initRedis();
 
   const app = express();
   app.use(helmet());
