@@ -9,9 +9,10 @@ import { AdminEconomyController } from './admin-economy.controller';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminAuditController } from './admin-audit.controller';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
+import { LoggingModule } from '../logging/logging.module';
 
 @Module({
-  imports: [AuthModule, forwardRef(() => EconomyModule), PrismaModule, RateLimitModule],
+  imports: [AuthModule, forwardRef(() => EconomyModule), PrismaModule, RateLimitModule, LoggingModule],
   controllers: [AdminController, AdminStatsController, AdminEconomyController, AdminAuditController],
   providers: [AdminGuard, AdminAuditService],
   exports: [AdminAuditService],
