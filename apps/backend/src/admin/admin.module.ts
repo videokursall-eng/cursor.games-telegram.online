@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { EconomyModule } from '../economy/economy.module';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -11,7 +11,7 @@ import { AdminAuditController } from './admin-audit.controller';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
 
 @Module({
-  imports: [AuthModule, EconomyModule, PrismaModule, RateLimitModule],
+  imports: [AuthModule, forwardRef(() => EconomyModule), PrismaModule, RateLimitModule],
   controllers: [AdminController, AdminStatsController, AdminEconomyController, AdminAuditController],
   providers: [AdminGuard, AdminAuditService],
   exports: [AdminAuditService],
