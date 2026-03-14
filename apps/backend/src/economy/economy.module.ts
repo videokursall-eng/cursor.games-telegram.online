@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AdminModule } from '../admin/admin.module';
+import { AuthModule } from '../auth/auth.module';
 import { WalletService } from './wallet.service';
 import { CosmeticsService } from './cosmetics.service';
 import { InventoryController } from './inventory.controller';
@@ -22,7 +23,7 @@ import {
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
 
 @Module({
-  imports: [PrismaModule, forwardRef(() => AdminModule), LoggingModule, RateLimitModule],
+  imports: [PrismaModule, forwardRef(() => AdminModule), AuthModule, LoggingModule, RateLimitModule],
   providers: [
     WalletService,
     CosmeticsService,
