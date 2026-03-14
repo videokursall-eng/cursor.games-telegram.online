@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prebuild": "node -e \"require('child_process').execSync('npx prisma generate', {cwd: require('path').resolve(require('path').join(__dirname, '../..')), stdio: 'inherit'})\"",
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
