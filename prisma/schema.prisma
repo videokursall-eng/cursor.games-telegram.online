@@ -1,0 +1,581 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Core user and auth
+
+model User {
+  id            String              @id @default(uuid())
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  telegram      TelegramProfile?
+  sessions      Session[]
+  wallets       EconomyWallet[]
+  bots          BotProfile[]
+  invites       Invite[]            @relation("UserInvites")
+  ownedRooms    Room[]              @relation("RoomOwner")
+  roomSlots     RoomParticipant[]
+  usedInvites   Invite[]            @relation("InviteUsedBy")
+  matches       MatchParticipant[]
+  moves         MatchMove[]
+  achievements  AchievementProgress[]
+  matchRecords  PlayerMatchRecord[]
+  seasonProgress SeasonProgress[]
+  seasonMatchRewards SeasonMatchReward[]
+  cosmeticItems PlayerCosmeticItem[]
+  equippedCosmetics PlayerEquippedCosmetic[]
+  seasonRewardClaims SeasonRewardClaim[]
+  starsIntents StarsPurchaseIntent[]
+  starsFulfillments StarsFulfillmentLog[]
+}
+
+model TelegramProfile {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  telegramId  Int      @unique
+  username    String?  @db.VarChar(64)
+  firstName   String   @db.VarChar(64)
+  lastName    String?  @db.VarChar(64)
+  language    String?  @db.VarChar(8)
+  photoUrl    String?
+  isPremium   Boolean  @default(false)
+
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([telegramId])
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  revokedAt   DateTime?
+  expiresAt   DateTime
+
+  userAgent   String?  @db.VarChar(255)
+  ip          String?  @db.VarChar(64)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Rooms & matches
+
+enum RoomStatus {
+  LOBBY
+  IN_PROGRESS
+  FINISHED
+}
+
+enum GameMode {
+  PODKIDNOY
+  PEREVODNOY
+}
+
+model Room {
+  id           String            @id @default(uuid())
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  code         String            @unique @db.VarChar(16)
+  ownerId      String
+  owner        User              @relation("RoomOwner", fields: [ownerId], references: [id])
+
+  mode         GameMode
+  status       RoomStatus        @default(LOBBY)
+
+  maxPlayers   Int               @default(4)
+  allowBots    Boolean           @default(true)
+
+  participants RoomParticipant[]
+  matches      Match[]
+  invites      Invite[]
+
+  @@index([ownerId])
+  @@index([status, mode])
+}
+
+enum RoomParticipantRole {
+  PLAYER
+  BOT
+}
+
+model RoomParticipant {
+  id        String               @id @default(uuid())
+  createdAt DateTime             @default(now())
+
+  roomId    String
+  room      Room                 @relation(fields: [roomId], references: [id])
+
+  userId    String?
+  user      User?                @relation(fields: [userId], references: [id])
+
+  botId     String?
+  bot       BotProfile?          @relation(fields: [botId], references: [id])
+
+  seat      Int
+  role      RoomParticipantRole  @default(PLAYER)
+
+  @@unique([roomId, seat])
+  @@index([roomId])
+  @@index([userId])
+  @@index([botId])
+}
+
+enum MatchStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model Match {
+  id           String             @id @default(uuid())
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  roomId       String
+  room         Room               @relation(fields: [roomId], references: [id])
+
+  mode         GameMode
+  status       MatchStatus        @default(ACTIVE)
+
+  startedAt    DateTime?
+  finishedAt   DateTime?
+
+  participants MatchParticipant[]
+  moves        MatchMove[]
+
+  @@index([roomId])
+  @@index([status, mode])
+}
+
+model MatchParticipant {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+
+  matchId    String
+  match      Match    @relation(fields: [matchId], references: [id])
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  isWinner   Boolean? // null — ещё не завершил
+  seat       Int
+
+  @@unique([matchId, userId])
+  @@index([matchId])
+  @@index([userId])
+}
+
+enum MoveType {
+  ATTACK
+  DEFEND
+  THROW_IN
+  TAKE
+  DISCARD
+}
+
+model MatchMove {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+
+  matchId    String
+  match      Match    @relation(fields: [matchId], references: [id])
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  order      Int
+  turn       Int
+  moveType   MoveType
+  payload    Json
+
+  @@unique([matchId, order])
+  @@index([matchId])
+  @@index([userId])
+}
+
+// Invites
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+model Invite {
+  id           String        @id @default(uuid())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  code         String        @unique @db.VarChar(32)
+
+  roomId       String
+  room         Room          @relation(fields: [roomId], references: [id])
+
+  createdById  String
+  createdBy    User          @relation("UserInvites", fields: [createdById], references: [id])
+
+  status       InviteStatus  @default(PENDING)
+  expiresAt    DateTime?
+
+  usedById     String?
+  usedBy       User?         @relation("InviteUsedBy", fields: [usedById], references: [id])
+
+  @@index([roomId])
+  @@index([code])
+}
+
+// Bots, achievements, economy
+
+model BotProfile {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name      String   @db.VarChar(64)
+  level     Int      @default(1)
+
+  ownerId   String?
+  owner     User?    @relation(fields: [ownerId], references: [id])
+
+  rooms     RoomParticipant[]
+}
+
+model AchievementProgress {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+
+  code          String   @db.VarChar(64)
+  currentValue  Int      @default(0)
+  targetValue   Int      @default(1)
+  completedAt   DateTime?
+
+  @@unique([userId, code])
+  @@index([userId])
+}
+
+// Player stats: one row per completed match per human player (for aggregation)
+enum MatchOutcome {
+  WIN
+  LOSS
+  DRAW
+}
+
+model PlayerMatchRecord {
+  id         String       @id @default(uuid())
+  createdAt  DateTime     @default(now())
+
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+
+  matchId    String       @db.VarChar(64)
+  mode       String       @db.VarChar(16)
+  outcome    MatchOutcome
+  durationMs Int          @default(0)
+  finishedAt DateTime     @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([userId, finishedAt])
+}
+
+model Season {
+  id           String             @id @default(uuid())
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  code         String             @unique @db.VarChar(32)
+  name         String             @db.VarChar(128)
+  startsAt     DateTime
+  endsAt       DateTime?
+  isActive     Boolean            @default(true)
+
+  progresses   SeasonProgress[]
+  matchRewards SeasonMatchReward[]
+  rewardTrack  RewardTrackItem[]
+  rewardClaims SeasonRewardClaim[]
+}
+
+model SeasonProgress {
+  id               String   @id @default(uuid())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+
+  seasonId         String
+  season           Season   @relation(fields: [seasonId], references: [id])
+
+  xp               Int      @default(0)
+  level            Int      @default(1)
+  claimedRewardIds String?  @db.Text
+
+  @@unique([userId, seasonId])
+  @@index([seasonId])
+}
+
+model SeasonMatchReward {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  seasonId  String
+  season    Season   @relation(fields: [seasonId], references: [id])
+
+  matchId   String   @db.VarChar(64)
+
+  @@unique([userId, seasonId, matchId])
+  @@index([seasonId])
+}
+
+model RewardTrackItem {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  seasonId  String
+  season    Season   @relation(fields: [seasonId], references: [id])
+
+  level     Int
+  rewardType String  @db.VarChar(16) // 'soft' | 'cosmetic' | 'badge'
+  amountSoft Int?
+  cosmeticItemId String? @db.VarChar(64)
+  badgeId   String?
+  badge     Badge?  @relation(fields: [badgeId], references: [id])
+
+  claims    SeasonRewardClaim[]
+
+  @@unique([seasonId, level])
+  @@index([seasonId])
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  code        String   @unique @db.VarChar(64)
+  title       String   @db.VarChar(128)
+  description String?  @db.VarChar(512)
+  icon        String?  @db.VarChar(256)
+  rarity      String?  @db.VarChar(32)
+  createdAt   DateTime @default(now())
+
+  rewardTrackItems RewardTrackItem[]
+}
+
+model SeasonRewardClaim {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  seasonId  String
+  season    Season   @relation(fields: [seasonId], references: [id])
+
+  rewardId  String
+  reward    RewardTrackItem @relation(fields: [rewardId], references: [id])
+
+  @@unique([userId, seasonId, rewardId])
+  @@index([userId, seasonId])
+}
+
+model PlayerCosmeticItem {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  itemId     String   @db.VarChar(64)
+  source     String   @db.VarChar(32)
+  tag        String?  @db.VarChar(64)
+
+  @@unique([userId, itemId])
+  @@index([userId])
+}
+
+model PlayerEquippedCosmetic {
+  id        String   @id @default(uuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  slot      String   @db.VarChar(32)
+  itemId    String   @db.VarChar(64)
+
+  @@unique([userId, slot])
+  @@index([userId])
+}
+
+model CosmeticCatalogItem {
+  id          String   @id @db.VarChar(64)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  code        String   @unique @db.VarChar(64)
+  slot        String   @db.VarChar(32)
+  title       String   @db.VarChar(128)
+  description String?  @db.VarChar(512)
+  icon        String?  @db.VarChar(256)
+  rarity      String   @db.VarChar(16)
+
+  priceSoft   Int?
+  priceStars  Int?
+
+  isExclusive Boolean  @default(false)
+  isLimited   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  seasonId    String?  @db.VarChar(64)
+}
+
+model StoreOffer {
+  id          String   @id @db.VarChar(64)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  code        String   @unique @db.VarChar(64)
+  itemId      String   @db.VarChar(64)
+  priceSoft   Int?
+  priceStars  Int?
+  currencyType String  @default("soft") @db.VarChar(16)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  startsAt    DateTime?
+  endsAt      DateTime?
+}
+
+model EconomyWallet {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  currency  String   @default("chips") @db.VarChar(16)
+  balance   Int      @default(0)
+
+  transactions Transaction[]
+
+  @@unique([userId, currency])
+  @@index([userId])
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+model Transaction {
+  id         String           @id @default(uuid())
+  createdAt  DateTime         @default(now())
+
+  walletId   String
+  wallet     EconomyWallet    @relation(fields: [walletId], references: [id])
+
+  amount     Int
+  type       TransactionType
+  reason     String?          @db.VarChar(128)
+  meta       Json?
+
+  @@index([walletId])
+}
+
+model AdminActionLog {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+
+  adminUserId String  @db.VarChar(64)
+  action      String  @db.VarChar(64)
+  targetType  String  @db.VarChar(64)
+  targetId    String? @db.VarChar(128)
+  success     Boolean @default(true)
+  reason      String? @db.VarChar(256)
+  payload     Json?
+
+  @@index([adminUserId, createdAt])
+  @@index([targetType, targetId])
+}
+
+// Telegram Stars payments
+
+model TelegramStarsProduct {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  code        String   @unique @db.VarChar(64)
+  title       String   @db.VarChar(128)
+  description String?  @db.VarChar(512)
+
+  amountStars Int
+  isActive    Boolean  @default(true)
+
+  intents     StarsPurchaseIntent[]
+}
+
+model StarsPurchaseIntent {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+
+  productId     String
+  product       TelegramStarsProduct @relation(fields: [productId], references: [id])
+
+  status        String   @db.VarChar(16) // pending | authorized | completed | failed | cancelled
+  provider      String   @db.VarChar(32) // 'telegram_stars'
+
+  externalId    String?  @db.VarChar(128) // Telegram charge/payment id
+  amountStars   Int
+
+  rawPayload    Json?
+
+  fulfillments  StarsFulfillmentLog[]
+
+  @@index([userId])
+  @@index([productId])
+  @@index([status])
+}
+
+model StarsFulfillmentLog {
+  id               String   @id @default(uuid())
+  createdAt        DateTime @default(now())
+
+  purchaseIntentId String
+  intent           StarsPurchaseIntent @relation(fields: [purchaseIntentId], references: [id])
+
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+
+  rewardType       String   @db.VarChar(32)
+  rewardPayload    Json
+  status           String   @db.VarChar(16) // applied | skipped | failed
+
+  @@index([purchaseIntentId])
+  @@index([userId])
+}
+
+

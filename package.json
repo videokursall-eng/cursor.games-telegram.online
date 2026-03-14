@@ -1,0 +1,62 @@
+{
+  "name": "durak-mini-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Telegram Mini App: Подкидной и Переводной Дурак",
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:frontend": "npm run dev -w apps/frontend",
+    "dev:backend": "npm run dev -w apps/backend",
+    "build": "node scripts/build-all.cjs",
+    "build:shared": "npm run build -w packages/shared",
+    "build:game-core": "npm run build -w packages/game-core",
+    "build:frontend": "npm run build -w apps/frontend",
+    "build:backend": "npm run build -w apps/backend",
+    "test": "npm run test -w apps/frontend && npm run test -w apps/backend && npm run test -w packages/shared && npm run test -w packages/game-core",
+    "test:shared": "npm run test -w packages/shared",
+    "test:shared:coverage": "npm run test:coverage -w packages/shared",
+    "test:ci": "node scripts/ci.js",
+    "smoke": "node scripts/smoke.js",
+    "lint": "npm run lint:core",
+    "lint:core": "npm run lint -w apps/frontend && npm run lint -w apps/backend && npm run lint -w packages/game-core",
+    "lint:shared": "npm run lint -w packages/shared",
+    "lint:fix": "npm run lint:fix --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:migrate": "node scripts/db-check.cjs && prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:seed": "prisma db seed",
+    "prisma:generate": "npm run db:generate",
+    "prisma:migrate": "npm run db:migrate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "db:up": "docker compose -f docker-compose.db.yml up -d",
+    "db:down": "docker compose -f docker-compose.db.yml down -v",
+    "db:reset": "npm run db:down && npm run db:up",
+    "db:check": "node scripts/db-check.cjs",
+    "db:doctor": "node scripts/db-doctor.cjs",
+    "prisma:check": "npm run db:check",
+    "db:prepare": "npm run db:up && cross-env DATABASE_URL=postgresql://durak:durak@localhost:5432/durak npm run prisma:generate && cross-env DATABASE_URL=postgresql://durak:durak@localhost:5432/durak npm run prisma:migrate && cross-env DATABASE_URL=postgresql://durak:durak@localhost:5432/durak npm run prisma:check",
+    "db:test:prepare": "npm run db:up && cross-env DATABASE_URL=postgresql://durak:durak@localhost:5433/durak_test npm run prisma:generate && cross-env DATABASE_URL=postgresql://durak:durak@localhost:5433/durak_test npm run prisma:migrate && cross-env DATABASE_URL=postgresql://durak:durak@localhost:5433/durak_test npm run prisma:check",
+    "prepare": "node scripts/prepare.js",
+    "e2e:prepare": "npm run db:test:prepare",
+    "e2e": "cross-env DATABASE_URL=postgresql://durak:durak@localhost:5433/durak_test node scripts/run-e2e-browser.js",
+    "e2e:http": "npm run build:backend && cross-env DATABASE_URL=postgresql://durak:durak@localhost:5433/durak_test npm run test:e2e -w apps/backend",
+    "test:e2e:db": "npm run e2e:prepare && npm run e2e:http",
+    "check:architecture": "depcruise --config .dependency-cruiser.cjs packages/game-core/src"
+  },
+  "workspaces": [
+    "apps/frontend",
+    "apps/backend",
+    "packages/shared",
+    "packages/game-core"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "cross-env": "^7.0.3",
+    "dependency-cruiser": "^17.3.9",
+    "prisma": "^5.11.0"
+  },
+  "packageManager": "npm@10.0.0"
+}
