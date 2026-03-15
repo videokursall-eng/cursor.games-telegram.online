@@ -23,8 +23,6 @@ function run(script) {
   }
 }
 
-// Generate Prisma client so backend sees correct delegates (user, storeOffer, etc.)
-run('db:generate');
 run('build:shared');
 run('build:game-core');
 run('build:frontend');

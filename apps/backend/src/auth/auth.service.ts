@@ -13,9 +13,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {
     const token = process.env.TELEGRAM_BOT_TOKEN || '';
-    const secret = process.env.TELEGRAM_BOT_SECRET || '';
-    const tokenOrSecret = token || secret;
-    this.validator = new InitDataValidator(tokenOrSecret);
+    this.validator = new InitDataValidator(token);
   }
 
   validateInitData(initDataRaw: string): ValidatedInitData | null {

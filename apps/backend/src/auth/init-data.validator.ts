@@ -9,12 +9,7 @@ export interface ValidatedInitData {
 }
 
 export class InitDataValidator {
-  /**
-   * Accepts either a raw bot token or a precomputed secret key.
-   * - If the string looks like a 64-char hex, it is treated as the secret key (SHA256(bot_token)).
-   * - Otherwise it is treated as bot token and converted to secret key with HMAC("WebAppData", bot_token).
-   */
-  constructor(private readonly tokenOrSecret: string) {}
+  constructor(private readonly botToken: string) {}
 
   validate(initDataRaw: string): ValidatedInitData | null {
     if (!initDataRaw?.trim()) return null;
@@ -29,16 +24,7 @@ export class InitDataValidator {
       .map(([k, v]) => `${k}=${v}`)
       .join('\n');
 
-    if (!this.tokenOrSecret) return null;
-
-    let secretKey: Buffer;
-    // If looks like hex SHA256, treat as precomputed secret key.
-    if (/^[a-f0-9]{64}$/i.test(this.tokenOrSecret)) {
-      secretKey = Buffer.from(this.tokenOrSecret, 'hex');
-    } else {
-      secretKey = createHmac('sha256', 'WebAppData').update(this.tokenOrSecret).digest();
-    }
-
+    const secretKey = createHmac('sha256', 'WebAppData').update(this.botToken).digest();
     const computedHash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
     if (computedHash !== hash) return null;

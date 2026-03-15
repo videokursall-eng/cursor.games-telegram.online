@@ -9,10 +9,8 @@ import type {
 import { emptyAggregatedStats } from 'shared';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MatchOutcome as PrismaMatchOutcome } from '@prisma/client';
 import type { MatchResult } from '../rooms/rooms.types';
-
-/** Match outcome for DB (PlayerMatchRecord.outcome). Aligns with prisma/schema.prisma enum MatchOutcome. */
-type PrismaMatchOutcome = 'WIN' | 'LOSS' | 'DRAW';
 import { ACHIEVEMENTS } from './achievements.config';
 import { resolveAchievementMeta } from 'shared';
 import { WalletService } from '../economy/wallet.service';
