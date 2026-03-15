@@ -141,6 +141,38 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     }
   }, [value.initData]);
 
+  // Визуальный debug‑overlay для диагностики наличия Telegram и initData.
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    const tg = window.Telegram?.WebApp;
+    const debug = document.createElement('div');
+    debug.id = 'telegram-debug-overlay';
+    debug.style.position = 'fixed';
+    debug.style.bottom = '0';
+    debug.style.left = '0';
+    debug.style.right = '0';
+    debug.style.background = 'black';
+    debug.style.color = '#00ff00';
+    debug.style.fontSize = '12px';
+    debug.style.zIndex = '99999';
+    debug.style.padding = '10px';
+    debug.style.pointerEvents = 'none';
+
+    debug.innerText =
+      'Telegram: ' +
+      String(!!tg) +
+      ' | initData length: ' +
+      String(tg?.initData?.length || 0) +
+      ' | url: ' +
+      window.location.href;
+
+    document.body.appendChild(debug);
+
+    return () => {
+      if (debug.parentNode) debug.parentNode.removeChild(debug);
+    };
+  }, []);
+
   return (
     <TelegramContext.Provider value={value}>
       {children}

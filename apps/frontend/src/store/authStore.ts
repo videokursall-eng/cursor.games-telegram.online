@@ -28,6 +28,18 @@ export const useAuthStore = create<AuthState>()(
       setAuthAttempted: () => set({ authAttempted: true }),
 
       login: async (initData: string) => {
+        if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'AUTH REQUEST debug: initData(from-arg-length)=',
+            initData?.length || 0,
+            'initData(window.Telegram.WebApp.length)=',
+            ((window as any).Telegram.WebApp.initData as string | undefined)?.length || 0,
+          );
+        } else {
+          // eslint-disable-next-line no-console
+          console.log('AUTH REQUEST debug: Telegram WebApp not available in window');
+        }
         if (!API_URL || !initData.trim()) {
           set({ authAttempted: true });
           return false;

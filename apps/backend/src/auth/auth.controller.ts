@@ -28,6 +28,9 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit({ limit: 10, windowMs: 60_000, keyType: 'ip' })
   async telegram(@Body() body: TelegramAuthDto) {
+    // Временная диагностика: логируем длину initData, чтобы убедиться, что фронт что‑то присылает.
+    // eslint-disable-next-line no-console
+    console.log('[AuthController] INIT DATA RECEIVED length:', body.initData ? body.initData.length : 0);
     const result = await this.authService.loginWithTelegram(body.initData ?? '');
     if (!result) {
       this.logger.warn('telegram_auth_failed', {
