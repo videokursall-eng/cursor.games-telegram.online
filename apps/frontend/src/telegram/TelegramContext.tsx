@@ -27,15 +27,40 @@ const TelegramContext = createContext<TelegramContextValue>({
   expand: () => {},
 });
 
+const INIT_DATA_POLL_DELAY_MS = 150;
+const INIT_DATA_POLL_ATTEMPTS = 8;
+
 export function TelegramProvider({ children }: { children: React.ReactNode }) {
   const [webApp, setWebApp] = useState<TelegramWebApp | null>(null);
 
   useEffect(() => {
     const tw = window.Telegram?.WebApp;
-    if (tw) {
-      setWebApp(tw);
-      tw.ready();
-      tw.expand();
+    if (!tw) return;
+    tw.ready();
+    tw.expand();
+    setWebApp(tw);
+
+    // Telegram may set initData asynchronously (postMessage from client). Poll briefly.
+    if (!tw.initData?.trim()) {
+      let attempts = 0;
+      const id = window.setInterval(() => {
+        attempts += 1;
+        const current = window.Telegram?.WebApp;
+        if (current?.initData?.trim()) {
+          window.clearInterval(id);
+          setWebApp(current);
+          return;
+        }
+        if (attempts >= INIT_DATA_POLL_ATTEMPTS) {
+          window.clearInterval(id);
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn(
+              '[Telegram Mini App] WebApp available but initData is empty after polling. Open the app from Telegram to sign in.',
+            );
+          }
+        }
+      }, INIT_DATA_POLL_DELAY_MS);
+      return () => window.clearInterval(id);
     }
   }, []);
 
