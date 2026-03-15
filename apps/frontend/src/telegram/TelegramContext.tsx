@@ -66,11 +66,15 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
 
     const rawFromSdk = tw.initData?.trim();
     const rawFromHash = getInitDataFromHash();
+
     if (rawFromSdk) {
+      setInitDataFromUrl('');
+      setWebApp(tw);
       return;
     }
     if (rawFromHash) {
       setInitDataFromUrl(rawFromHash);
+      setWebApp(tw);
       return;
     }
 

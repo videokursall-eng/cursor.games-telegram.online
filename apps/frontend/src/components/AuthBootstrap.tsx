@@ -24,6 +24,11 @@ export function AuthBootstrap() {
     if (isTelegram && !initData && !waitDone.current) {
       const t = window.setTimeout(() => {
         waitDone.current = true;
+        if (isTelegram && !initData && typeof console !== 'undefined' && console.warn) {
+          console.warn(
+            '[Telegram Mini App] initData пустое — откройте приложение из Telegram (кнопка «Играть» в боте).',
+          );
+        }
         setAuthAttempted();
       }, WAIT_INIT_DATA_MS);
       return () => window.clearTimeout(t);

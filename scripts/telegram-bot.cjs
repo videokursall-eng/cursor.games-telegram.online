@@ -8,6 +8,7 @@
 const { Telegraf } = require('telegraf');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
+// URL должен быть HTTPS, иначе Telegram не передаст initData в Mini App
 const miniAppUrl = process.env.MINI_APP_URL || 'https://app.games-telegram.online';
 
 if (!token) {
@@ -21,14 +22,7 @@ bot.start((ctx) => {
   ctx.reply('🎮 Играть в Дурака:', {
     reply_markup: {
       inline_keyboard: [
-        [
-          {
-            text: 'Играть',
-            web_app: {
-              url: miniAppUrl,
-            },
-          },
-        ],
+        [{ text: 'Играть', web_app: { url: miniAppUrl } }],
       ],
     },
   });
