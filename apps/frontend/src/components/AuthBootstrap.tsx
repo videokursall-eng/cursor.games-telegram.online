@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useTelegramContext } from '../telegram';
 import { useAuthStore } from '../store/authStore';
 
-/** Max wait for initData to appear (TelegramContext polls ~1.2s) */
-const WAIT_INIT_DATA_MS = 1500;
+/** Max wait for initData (TelegramContext: SDK + URL hash + poll ~5s) */
+const WAIT_INIT_DATA_MS = 5500;
 
 /**
  * Runs once on mount: if we have Telegram initData, sends it to backend and stores session.
