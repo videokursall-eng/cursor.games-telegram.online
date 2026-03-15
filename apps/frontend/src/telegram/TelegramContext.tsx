@@ -30,6 +30,13 @@ const TelegramContext = createContext<TelegramContextValue>({
 const INIT_DATA_POLL_DELAY_MS = 200;
 const INIT_DATA_POLL_ATTEMPTS = 25;
 
+// Глобальный safety‑вызов ready() сразу после загрузки скрипта Mini App (если Telegram SDK уже есть).
+if (typeof window !== 'undefined' && window.Telegram?.WebApp?.ready) {
+  window.Telegram.WebApp.ready();
+  // eslint-disable-next-line no-console
+  console.log('[Telegram Mini App] ready() вызвано (top-level)');
+}
+
 /**
  * Telegram passes init data in the URL fragment as tgWebAppData=query_string.
  * Use this when Telegram.WebApp.initData is empty (e.g. SDK didn't parse it yet or client uses hash only).
@@ -110,7 +117,12 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo((): TelegramContextValue => {
     const isTelegram = !!webApp;
-    const initData = webApp?.initData?.trim() || initDataFromUrl || '';
+    // Основной источник initData — SDK, затем fallback из hash/URL.
+    const fromSdk = webApp?.initData?.trim();
+    const fromHashOrUrl = initDataFromUrl || (typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('initData') || ''
+      : '');
+    const initData = fromSdk || fromHashOrUrl || '';
     return {
       isTelegram,
       initData,
@@ -124,6 +136,7 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
   // Диагностика для проверки: при открытии из Telegram initData должен быть не пустым
   useEffect(() => {
     if (value.initData && typeof console !== 'undefined' && console.log) {
+      // eslint-disable-next-line no-console
       console.log('[Telegram Mini App] initData получен (длина: %i) — авторизация возможна.', value.initData.length);
     }
   }, [value.initData]);
