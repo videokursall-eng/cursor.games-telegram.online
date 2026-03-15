@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+require('dotenv').config(); // Подключение .env для CommonJS
 /**
  * Telegram bot: при /start отправляет кнопку "Играть" с Web App (Mini App).
  * Запуск: TELEGRAM_BOT_TOKEN=... [MINI_APP_URL=https://...] node scripts/telegram-bot.cjs
