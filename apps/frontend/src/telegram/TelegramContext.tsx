@@ -62,9 +62,8 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     if (!tw) return;
     tw.ready();
     tw.expand();
-    setWebApp(tw);
 
-    const rawFromSdk = tw.initData?.trim();
+    const rawFromSdk = window.Telegram?.WebApp?.initData?.trim();
     const rawFromHash = getInitDataFromHash();
 
     if (rawFromSdk) {
@@ -78,7 +77,13 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Neither SDK nor hash: poll both (SDK may get it via postMessage; hash may appear).
+    // SDK и hash пустые — без открытия через кнопку бота initData не будет
+    setWebApp(tw);
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[Telegram Mini App] initData пустое. Откройте из Telegram.');
+    }
+
+    // Polling оставляем — на случай запоздалой передачи от клиента
     let attempts = 0;
     const id = window.setInterval(() => {
       attempts += 1;
@@ -98,11 +103,6 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
       }
       if (attempts >= INIT_DATA_POLL_ATTEMPTS) {
         window.clearInterval(id);
-        if (typeof console !== 'undefined' && console.warn) {
-          console.warn(
-            '[Telegram Mini App] WebApp available but initData is empty after polling (SDK + URL hash). Open the app from Telegram to sign in.',
-          );
-        }
       }
     }, INIT_DATA_POLL_DELAY_MS);
     return () => window.clearInterval(id);
@@ -120,6 +120,13 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
       expand: () => webApp?.expand(),
     };
   }, [webApp, initDataFromUrl]);
+
+  // Диагностика для проверки: при открытии из Telegram initData должен быть не пустым
+  useEffect(() => {
+    if (value.initData && typeof console !== 'undefined' && console.log) {
+      console.log('[Telegram Mini App] initData получен (длина: %i) — авторизация возможна.', value.initData.length);
+    }
+  }, [value.initData]);
 
   return (
     <TelegramContext.Provider value={value}>

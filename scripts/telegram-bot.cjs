@@ -7,22 +7,28 @@
  */
 const { Telegraf } = require('telegraf');
 
-const token = process.env.TELEGRAM_BOT_TOKEN;
-// URL должен быть HTTPS, иначе Telegram не передаст initData в Mini App
+// BOT_TOKEN или TELEGRAM_BOT_TOKEN — один обязателен
+const token = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
+// ОБЯЗАТЕЛЬНО HTTPS — иначе Telegram не передаст initData в Mini App
 const miniAppUrl = process.env.MINI_APP_URL || 'https://app.games-telegram.online';
 
 if (!token) {
-  console.error('Укажите TELEGRAM_BOT_TOKEN в окружении.');
+  console.error('Укажите TELEGRAM_BOT_TOKEN или BOT_TOKEN в окружении.');
   process.exit(1);
 }
 
 const bot = new Telegraf(token);
 
 bot.start((ctx) => {
-  ctx.reply('🎮 Играть в Дурака:', {
+  ctx.reply('🎮 Играть в Дурака', {
     reply_markup: {
       inline_keyboard: [
-        [{ text: 'Играть', web_app: { url: miniAppUrl } }],
+        [
+          {
+            text: 'Играть',
+            web_app: { url: miniAppUrl },
+          },
+        ],
       ],
     },
   });

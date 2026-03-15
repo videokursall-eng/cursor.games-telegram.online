@@ -14,6 +14,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    // Telegram WebView может не понимать ESM — собираем в es2015
+    target: 'es2015',
   },
   envPrefix: 'VITE_',
 });
