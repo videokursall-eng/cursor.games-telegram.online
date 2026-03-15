@@ -21,13 +21,15 @@ if (!token) {
 const bot = new Telegraf(token);
 
 bot.start((ctx) => {
+  // Добавляем query-параметр, чтобы Telegram не переиспользовал старый webview кэш
+  const urlWithCacheBust = `${miniAppUrl}?v=${Date.now()}`;
   ctx.reply('🎮 Играть в Дурака', {
     reply_markup: {
       inline_keyboard: [
         [
           {
             text: 'Играть',
-            web_app: { url: miniAppUrl },
+            web_app: { url: urlWithCacheBust },
           },
         ],
       ],
