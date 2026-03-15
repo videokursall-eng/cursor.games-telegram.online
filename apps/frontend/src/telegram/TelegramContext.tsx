@@ -141,7 +141,7 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     }
   }, [value.initData]);
 
-  // Визуальный debug‑overlay для диагностики наличия Telegram и initData.
+  // Визуальный debug‑overlay: текст выделяемый и копируемый на мобильных (iOS/Android).
   useEffect(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') return;
     const tg = window.Telegram?.WebApp;
@@ -156,7 +156,12 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     debug.style.fontSize = '12px';
     debug.style.zIndex = '99999';
     debug.style.padding = '10px';
-    debug.style.pointerEvents = 'none';
+    debug.style.userSelect = 'text';
+    debug.style.webkitUserSelect = 'text';
+    debug.style.wordBreak = 'break-all';
+    // Разрешаем касания, чтобы можно было выделить и скопировать текст на мобильном.
+    debug.style.pointerEvents = 'auto';
+    debug.setAttribute('data-debug-overlay', 'true');
 
     debug.innerText =
       'Telegram: ' +
