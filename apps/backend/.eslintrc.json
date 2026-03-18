@@ -1,0 +1,36 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "prettier"
+  ],
+  "env": { "node": true, "jest": true },
+  "ignorePatterns": ["dist", "node_modules", "coverage"],
+  "overrides": [
+    {
+      "files": [
+        "src/economy/admin-offers.service.ts",
+        "src/economy/store-offers.controller.ts",
+        "src/economy/admin-offers.controller.spec.ts",
+        "src/economy/store.flow.spec.ts",
+        "src/season/admin-season.controller.ts",
+        "src/season/admin-season.controller.spec.ts",
+        "src/season/admin-badge.controller.ts",
+        "src/admin/admin-stats.controller.ts",
+        "src/admin/admin-economy.controller.ts",
+        "src/admin/admin-audit.controller.ts",
+        "src/admin/admin-audit.service.ts",
+        "src/admin/admin-audit.service.spec.ts",
+        "src/admin/admin-audit.controller.spec.ts",
+        "src/admin/admin-economy.controller.spec.ts",
+        "src/economy/admin-cosmetics.controller.spec.ts"
+      ],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off"
+      }
+    }
+  ]
+}
